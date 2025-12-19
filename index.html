@@ -33,7 +33,10 @@
     <div onclick="showP('b',this)">💰 帳單</div>
 </nav>
 
-<div id="h" class="page active-p"><div id="calendar"></div></div>
+<div id="h" class="page active-p">
+    <h2 style="text-align:center; color:var(--p);">鋼琴教學管理</h2>
+    <div id="calendar"></div>
+</div>
 
 <div id="s" class="page">
     <button onclick="openSForm()">+ 新增學生檔案</button>
@@ -82,7 +85,8 @@
         <p id="mDateDesc" style="font-size:14px; color:#666;"></p>
         <label>當天時間</label><input type="time" id="mT" step="600">
         <label>當天費用</label><input type="number" id="mR">
-        <button onclick="saveDayEx()">儲存</button>
+        <button onclick="saveDayEx()">僅修改這一天</button>
+        <button class="btn-d" onclick="delDayEx()">刪除這天課堂</button>
         <button class="btn-o" onclick="closeModal()">取消</button>
     </div>
 </div>
@@ -96,7 +100,7 @@
         <select id="sD"><option value="1">週一</option><option value="2">週二</option><option value="3">週三</option><option value="4">週四</option><option value="5">週五</option><option value="6">週六</option><option value="0">週日</option></select>
         <label>時間</label><input type="time" id="sT" step="600">
         <label>學費</label><input type="number" id="sR">
-        <p style="font-size:11px; color:var(--d);">* 修改將於「今天(含)之後」生效，歷史紀錄將被保留。</p>
+        <p style="font-size:11px; color:var(--d);">* 修改將於今日起生效，不影響歷史金額。</p>
         <button onclick="saveS()">確認儲存</button>
         <button id="delBtn" class="btn-d" style="display:none;">刪除學生</button>
         <button class="btn-o" onclick="closeModal()">關閉</button>
@@ -151,7 +155,7 @@
             document.getElementById('sT').value = ss[i].t;
             document.getElementById('sR').value = ss[i].r;
             dBtn.style.display = 'block';
-            dBtn.onclick = () => { if(confirm(`確定刪除學生「${ss[i].n}」？\n刪除後歷史帳單仍會保留。`)) { ss.splice(i,1); save(); renderS(); closeModal(); } };
+            dBtn.onclick = () => { if(confirm(`確定刪除學生「${ss[i].n}」？`)) { ss.splice(i,1); save(); renderS(); closeModal(); } };
         } else {
             document.getElementById('eIdx').value = ""; document.getElementById('sN').value = ""; document.getElementById('sT').value = "14:00"; dBtn.style.display = 'none';
         }
@@ -161,10 +165,7 @@
         const today = new Date().toISOString().split('T')[0];
         let i = document.getElementById('eIdx').value;
         let newData = { n: document.getElementById('sN').value, d: document.getElementById('sD').value, t: document.getElementById('sT').value, r: document.getElementById('sR').value };
-        
-        if(i==="") {
-            ss.push(newData);
-        } else {
+        if(i==="") { ss.push(newData); } else {
             if(!ss[i].history) ss[i].history = [];
             if(ss[i].t !== newData.t || ss[i].r !== newData.r || ss[i].d !== newData.d) {
                 ss[i].history.push({ d: ss[i].d, t: ss[i].t, r: ss[i].r, until: today });
@@ -188,23 +189,14 @@
         document.getElementById('oneStudent').innerHTML = ss.map(s => `<option value="${s.n}">${s.n}</option>`).join('');
         document.getElementById('adjList').innerHTML = adjs.map((a, i) => `
             <div class="adj-item">
-                <div>
-                    <b>${a.target === 'ALL' ? '📢 全體' : '👤 ' + a.target}</b><br>
-                    <small>${a.start} ~ ${a.end} [${a.type==='off'?'停課':'加課'}]</small>
-                </div>
+                <div><b>${a.target === 'ALL' ? '📢 全體' : '👤 ' + a.target}</b><br><small>${a.start} ~ ${a.end} [${a.type==='off'?'停課':'加課'}]</small></div>
                 <button onclick="confirmDelAdj(${i})" style="width:60px; padding:6px; font-size:12px; background:var(--d); margin:0;">刪除</button>
             </div>
         `).join('');
     }
 
     function confirmDelAdj(idx) {
-        const a = adjs[idx];
-        const targetName = a.target === 'ALL' ? '全體停課' : `學生 ${a.target} 的特殊設定`;
-        if(confirm(`確定要刪除「${targetName}」嗎？`)) {
-            adjs.splice(idx, 1);
-            save();
-            renderAdj();
-        }
+        if(confirm(`確定要刪除此項設定嗎？`)) { adjs.splice(idx, 1); save(); renderAdj(); }
     }
 
     function getStudentInfoForDate(student, dateStr) {
@@ -232,11 +224,14 @@
                 let isOneExtra = adjs.some(a => a.target === s.n && a.type === 'extra' && dStr >= a.start && dStr <= a.end);
                 let ex = dayEx[dStr + "_" + s.n];
 
+                // 如果當天被標記為「deleted」，則跳過不顯示
+                if (ex && ex.deleted) continue;
+
                 if ((d.getDay() == info.d && !isAllOff && !isOneOff) || isOneExtra) {
                     let time = ex ? ex.t : info.t;
                     let rate = ex ? ex.r : info.r;
                     evs.push({
-                        title: `${s.n} ${fmtT(time)}`,
+                        title: `${s.n} ${fmtT(time)}`, // 確實改為：學生姓名在前
                         start: dStr + 'T' + time,
                         color: isOneExtra ? '#c6f6d5' : '#ebf8ff',
                         textColor: isOneExtra ? '#22543d' : '#2b6cb0',
@@ -268,8 +263,15 @@
     }
 
     function saveDayEx() {
-        dayEx[curEditDate + "_" + curEditName] = { t: document.getElementById('mT').value, r: document.getElementById('mR').value };
+        dayEx[curEditDate + "_" + curEditName] = { t: document.getElementById('mT').value, r: document.getElementById('mR').value, deleted: false };
         save(); renderCal(); closeModal();
+    }
+
+    function delDayEx() {
+        if(confirm(`確定要刪除 ${curEditDate} 這一天的課程嗎？\n(這將不計入學費)`)) {
+            dayEx[curEditDate + "_" + curEditName] = { deleted: true };
+            save(); renderCal(); closeModal();
+        }
     }
 
     function upOpt() {
@@ -281,7 +283,6 @@
         let i = document.getElementById('bS').value; if(!ss[i] || !document.getElementById('bM').value) return;
         let s = ss[i], mStr = document.getElementById('bM').value, b = parseInt(document.getElementById('bB').value)||0;
         let d = new Date(mStr + "-01"), year = d.getFullYear(), mon = d.getMonth(), count = 0, totalR = 0, dates = [];
-        
         while(d.getMonth() === mon) {
             let dStr = d.toISOString().split('T')[0];
             let info = getStudentInfoForDate(s, dStr);
@@ -290,7 +291,8 @@
             let isOneExtra = adjs.some(a => a.target === s.n && a.type === 'extra' && dStr >= a.start && dStr <= a.end);
             let ex = dayEx[dStr + "_" + s.n];
 
-            if ((d.getDay() == info.d && !isAllOff && !isOneOff) || isOneExtra) {
+            // 判斷：必須非刪除且非停課
+            if (!(ex && ex.deleted) && ((d.getDay() == info.d && !isAllOff && !isOneOff) || isOneExtra)) {
                 count++;
                 let currentRate = parseInt(ex ? ex.r : info.r);
                 totalR += currentRate;
@@ -302,7 +304,6 @@
     }
 
     function share() { window.location.href = "https://line.me/R/msg/text/?" + encodeURIComponent(document.getElementById('bT').value); }
-
     showP('h');
 </script>
 </body>
