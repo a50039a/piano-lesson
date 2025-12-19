@@ -18,10 +18,11 @@
         input, select, textarea { width: 100%; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 10px; box-sizing: border-box; font-size: 16px; }
         button { background: var(--p); color: white; border: none; padding: 14px; border-radius: 10px; width: 100%; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
         .btn-s { background: var(--s); } .btn-d { background: var(--d); } .btn-o { background: white; color: var(--p); border: 1.5px solid var(--p); }
-        #calendar { background: white; padding: 10px; border-radius: 15px; height: 75vh; }
+        #calendar { background: white; padding: 10px; border-radius: 15px; height: 70vh; }
         .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2000; align-items:center; justify-content:center; }
         .row { display: flex; gap: 10px; } .row > div { flex: 1; }
-        .adj-item { font-size: 13px; padding: 12px 0; border-bottom: 1px solid #edf2f7; display: flex; justify-content: space-between; align-items: center; }
+        .month-chip { display: inline-block; padding: 8px 12px; margin: 4px; border-radius: 20px; border: 1px solid #e2e8f0; cursor: pointer; font-size: 14px; }
+        .month-chip.selected { background: var(--p); color: white; border-color: var(--p); }
     </style>
 </head>
 <body>
@@ -30,7 +31,7 @@
     <div onclick="showP('h',this)" class="active">📅 日曆</div>
     <div onclick="showP('s',this)">👥 學生</div>
     <div onclick="showP('off',this)">🚫 停/加課</div>
-    <div onclick="showP('b',this)">💰 帳單</div>
+    <div onclick="showP('b',this)">💰 費用</div>
 </nav>
 
 <div id="h" class="page active-p">
@@ -71,11 +72,17 @@
 
 <div id="b" class="page">
     <div class="card">
-        <label>選擇學生</label><select id="bS" onchange="upB()"></select>
-        <label>選擇月份</label><input type="month" id="bM" onchange="upB()">
-        <label>教材費</label><input type="number" id="bB" value="0" onchange="upB()">
-        <textarea id="bT" rows="9" style="margin-top:15px; background:#f8fafc; font-family: sans-serif;"></textarea>
-        <button class="btn-s" onclick="share()">LINE 分享帳單</button>
+        <label>選擇學生</label>
+        <select id="bS" onchange="renderMonthPicker(); upB();"></select>
+        
+        <label>選擇月份 (可複選)</label>
+        <div id="monthPicker" style="margin-bottom: 10px;"></div>
+
+        <label>教材費</label>
+        <input type="number" id="bB" value="0" onchange="upB()">
+        
+        <textarea id="bT" rows="11" style="margin-top:15px; background:#f8fafc; font-family: sans-serif; font-size: 14px;"></textarea>
+        <button class="btn-s" onclick="share()">LINE 分享明細</button>
     </div>
 </div>
 
@@ -99,8 +106,7 @@
         <label>上課日</label>
         <select id="sD"><option value="1">週一</option><option value="2">週二</option><option value="3">週三</option><option value="4">週四</option><option value="5">週五</option><option value="6">週六</option><option value="0">週日</option></select>
         <label>時間</label><input type="time" id="sT" step="600">
-        <label>學費</label><input type="number" id="sR">
-        <p style="font-size:11px; color:var(--d);">* 修改將於今日起生效，不影響歷史金額。</p>
+        <label>費用</label><input type="number" id="sR">
         <button onclick="saveS()">確認儲存</button>
         <button id="delBtn" class="btn-d" style="display:none;">刪除學生</button>
         <button class="btn-o" onclick="closeModal()">關閉</button>
@@ -111,6 +117,7 @@
     let ss = JSON.parse(localStorage.getItem('p_ss')) || [];
     let adjs = JSON.parse(localStorage.getItem('p_adjs')) || [];
     let dayEx = JSON.parse(localStorage.getItem('p_dayEx')) || {};
+    let selectedMonths = [];
     let cal, curEditDate, curEditName;
 
     function fmtT(t) {
@@ -127,7 +134,7 @@
         if(id === 'h') renderCal();
         if(id === 's') renderS();
         if(id === 'off') renderAdj();
-        if(id === 'b') { upOpt(); upB(); }
+        if(id === 'b') { upOpt(); renderMonthPicker(); upB(); }
     }
 
     function save() {
@@ -155,7 +162,7 @@
             document.getElementById('sT').value = ss[i].t;
             document.getElementById('sR').value = ss[i].r;
             dBtn.style.display = 'block';
-            dBtn.onclick = () => { if(confirm(`確定刪除學生「${ss[i].n}」？`)) { ss.splice(i,1); save(); renderS(); closeModal(); } };
+            dBtn.onclick = () => { if(confirm(`確定刪除「${ss[i].n}」？`)) { ss.splice(i,1); save(); renderS(); closeModal(); } };
         } else {
             document.getElementById('eIdx').value = ""; document.getElementById('sN').value = ""; document.getElementById('sT').value = "14:00"; dBtn.style.display = 'none';
         }
@@ -188,15 +195,11 @@
     function renderAdj() {
         document.getElementById('oneStudent').innerHTML = ss.map(s => `<option value="${s.n}">${s.n}</option>`).join('');
         document.getElementById('adjList').innerHTML = adjs.map((a, i) => `
-            <div class="adj-item">
-                <div><b>${a.target === 'ALL' ? '📢 全體' : '👤 ' + a.target}</b><br><small>${a.start} ~ ${a.end} [${a.type==='off'?'停課':'加課'}]</small></div>
-                <button onclick="confirmDelAdj(${i})" style="width:60px; padding:6px; font-size:12px; background:var(--d); margin:0;">刪除</button>
+            <div class="adj-item" style="border-bottom:1px solid #eee; padding:10px 0; display:flex; justify-content:space-between;">
+                <div><b>${a.target === 'ALL' ? '📢 全體' : '👤 ' + a.target}</b><br><small>${a.start} ~ ${a.end}</small></div>
+                <button onclick="if(confirm('刪除？')){adjs.splice(${i},1);save();renderAdj();}" style="width:50px; background:var(--d); font-size:12px; margin:0; padding:5px;">刪除</button>
             </div>
         `).join('');
-    }
-
-    function confirmDelAdj(idx) {
-        if(confirm(`確定要刪除此項設定嗎？`)) { adjs.splice(idx, 1); save(); renderAdj(); }
     }
 
     function getStudentInfoForDate(student, dateStr) {
@@ -211,35 +214,36 @@
         let el = document.getElementById('calendar');
         if(cal) cal.destroy();
         let evs = [];
-        let startBound = new Date(); startBound.setDate(startBound.getDate() - 30);
+        let now = new Date();
+        let currentYear = now.getFullYear();
         
+        // 邏輯 2: 只初始化顯示當年度 & 之後三個月
+        let startBound = new Date(currentYear, 0, 1); // 當年 1/1
+        let endBound = new Date(now.getFullYear(), now.getMonth() + 4, 0); // 往後三個月底
+
         ss.forEach(s => {
-            for(let i = 0; i < 90; i++) {
-                let d = new Date(startBound); d.setDate(d.getDate() + i);
+            let d = new Date(startBound);
+            while(d <= endBound) {
                 let dStr = d.toISOString().split('T')[0];
                 let info = getStudentInfoForDate(s, dStr);
-                
                 let isAllOff = adjs.some(a => a.target === 'ALL' && a.type === 'off' && dStr >= a.start && dStr <= a.end);
                 let isOneOff = adjs.some(a => a.target === s.n && a.type === 'off' && dStr >= a.start && dStr <= a.end);
                 let isOneExtra = adjs.some(a => a.target === s.n && a.type === 'extra' && dStr >= a.start && dStr <= a.end);
                 let ex = dayEx[dStr + "_" + s.n];
 
-                // 如果當天被標記為「deleted」，則跳過不顯示
-                if (ex && ex.deleted) continue;
-
-                if ((d.getDay() == info.d && !isAllOff && !isOneOff) || isOneExtra) {
+                if (!(ex && ex.deleted) && ((d.getDay() == info.d && !isAllOff && !isOneOff) || isOneExtra)) {
                     let time = ex ? ex.t : info.t;
-                    let rate = ex ? ex.r : info.r;
                     evs.push({
-                        title: `${s.n} ${fmtT(time)}`, // 確實改為：學生姓名在前
+                        title: `${s.n} ${fmtT(time)}`,
                         start: dStr + 'T' + time,
                         color: isOneExtra ? '#c6f6d5' : '#ebf8ff',
                         textColor: isOneExtra ? '#22543d' : '#2b6cb0',
-                        extendedProps: { name: s.n, date: dStr, rate: rate, time: time }
+                        extendedProps: { name: s.n, date: dStr, rate: ex ? ex.r : info.r, time: time }
                     });
                 } else if (d.getDay() == info.d && (isAllOff || isOneOff)) {
                     evs.push({ title: `❌ ${s.n} 停課`, start: dStr, color: '#fed7d7', textColor: '#c53030' });
                 }
+                d.setDate(d.getDate() + 1);
             }
         });
 
@@ -268,7 +272,7 @@
     }
 
     function delDayEx() {
-        if(confirm(`確定要刪除 ${curEditDate} 這一天的課程嗎？\n(這將不計入學費)`)) {
+        if(confirm(`刪除 ${curEditDate} 課程？`)) {
             dayEx[curEditDate + "_" + curEditName] = { deleted: true };
             save(); renderCal(); closeModal();
         }
@@ -279,11 +283,17 @@
         document.getElementById('oneStudent').innerHTML = ss.map(s => `<option value="${s.n}">${s.n}</option>`).join('');
     }
 
-    function upB() {
-        let i = document.getElementById('bS').value; if(!ss[i] || !document.getElementById('bM').value) return;
-        let s = ss[i], mStr = document.getElementById('bM').value, b = parseInt(document.getElementById('bB').value)||0;
-        let d = new Date(mStr + "-01"), year = d.getFullYear(), mon = d.getMonth(), count = 0, totalR = 0, dates = [];
-        while(d.getMonth() === mon) {
+    // 邏輯 3: 費用月份選擇器 (只顯示有課的月份)
+    function renderMonthPicker() {
+        let i = document.getElementById('bS').value; if(!ss[i]) return;
+        let s = ss[i];
+        let availableMonths = new Set();
+        let now = new Date();
+        let start = new Date(now.getFullYear(), 0, 1);
+        let end = new Date(now.getFullYear(), now.getMonth() + 4, 0);
+
+        let d = new Date(start);
+        while(d <= end) {
             let dStr = d.toISOString().split('T')[0];
             let info = getStudentInfoForDate(s, dStr);
             let isAllOff = adjs.some(a => a.target === 'ALL' && a.type === 'off' && dStr >= a.start && dStr <= a.end);
@@ -291,16 +301,54 @@
             let isOneExtra = adjs.some(a => a.target === s.n && a.type === 'extra' && dStr >= a.start && dStr <= a.end);
             let ex = dayEx[dStr + "_" + s.n];
 
-            // 判斷：必須非刪除且非停課
             if (!(ex && ex.deleted) && ((d.getDay() == info.d && !isAllOff && !isOneOff) || isOneExtra)) {
-                count++;
-                let currentRate = parseInt(ex ? ex.r : info.r);
-                totalR += currentRate;
-                dates.push(`${d.getDate()}`);
+                availableMonths.add(dStr.substring(0, 7));
             }
             d.setDate(d.getDate() + 1);
         }
-        document.getElementById('bT').value = `🎹 ${year}年${mon+1}月學費明細 - ${s.n}\n------------------------\n上課日期：${dates.join(', ')} 號 (共 ${count} 堂)\n課程學費：$${totalR.toLocaleString()}\n教材費用：$${b.toLocaleString()}\n------------------------\n總計金額：$${(totalR + b).toLocaleString()}\n\n再麻煩匯款後通知，謝謝！`;
+
+        let sorted = Array.from(availableMonths).sort();
+        document.getElementById('monthPicker').innerHTML = sorted.map(m => {
+            let isSel = selectedMonths.includes(m);
+            return `<div class="month-chip ${isSel?'selected':''}" onclick="toggleMonth('${m}')">${m}</div>`;
+        }).join('');
+    }
+
+    function toggleMonth(m) {
+        if(selectedMonths.includes(m)) selectedMonths = selectedMonths.filter(x => x !== m);
+        else selectedMonths.push(m);
+        renderMonthPicker();
+        upB();
+    }
+
+    function upB() {
+        let i = document.getElementById('bS').value; if(!ss[i] || selectedMonths.length === 0) { document.getElementById('bT').value = ""; return; }
+        let s = ss[i], b = parseInt(document.getElementById('bB').value)||0;
+        let totalCount = 0, totalR = 0, allDates = [];
+
+        selectedMonths.sort().forEach(mStr => {
+            let d = new Date(mStr + "-01"), mon = d.getMonth();
+            let monthDates = [];
+            while(d.getMonth() === mon) {
+                let dStr = d.toISOString().split('T')[0];
+                let info = getStudentInfoForDate(s, dStr);
+                let isAllOff = adjs.some(a => a.target === 'ALL' && a.type === 'off' && dStr >= a.start && dStr <= a.end);
+                let isOneOff = adjs.some(a => a.target === s.n && a.type === 'off' && dStr >= a.start && dStr <= a.end);
+                let isOneExtra = adjs.some(a => a.target === s.n && a.type === 'extra' && dStr >= a.start && dStr <= a.end);
+                let ex = dayEx[dStr + "_" + s.n];
+
+                if (!(ex && ex.deleted) && ((d.getDay() == info.d && !isAllOff && !isOneOff) || isOneExtra)) {
+                    totalCount++;
+                    totalR += parseInt(ex ? ex.r : info.r);
+                    monthDates.push(d.getDate());
+                }
+                d.setDate(d.getDate() + 1);
+            }
+            allDates.push(`${mStr.split('-')[1]}月(${monthDates.join(',')})`);
+        });
+
+        let monthTitle = selectedMonths.map(m => m.replace('-','年')+'月').join('、');
+        document.getElementById('bT').value = `🎹 費用明細 - ${s.n}\n------------------------\n月份：${monthTitle}\n上課日期：\n${allDates.join('\n')}\n共 ${totalCount} 堂\n\n課程費用：$${totalR.toLocaleString()}\n教材費用：$${b.toLocaleString()}\n------------------------\n總計金額：$${(totalR + b).toLocaleString()}\n\n再麻煩匯款後通知，謝謝！`;
     }
 
     function share() { window.location.href = "https://line.me/R/msg/text/?" + encodeURIComponent(document.getElementById('bT').value); }
