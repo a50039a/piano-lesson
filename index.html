@@ -3,75 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>精緻鋼琴管理系統 Pro</title>
+    <title>鋼琴教學管理</title>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
     <style>
-        :root { --bg: #f8f9fa; --card: #ffffff; --primary: #5a67d8; --success: #48bb78; --danger: #f56565; --text: #2d3748; }
-        body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background: var(--bg); margin: 0; color: var(--text); padding-bottom: 70px; }
-        
-        /* Tab Bar */
-        nav { background: white; display: flex; justify-content: space-around; padding: 12px 0; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        nav div { font-size: 14px; font-weight: 600; color: #a0aec0; cursor: pointer; transition: 0.3s; }
-        nav div.active { color: var(--primary); border-bottom: 2px solid var(--primary); padding-bottom: 4px; }
-
-        .page { display: none; padding: 16px; max-width: 600px; margin: auto; animation: fadeIn 0.3s; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .active-page { display: block; }
-
-        /* Card Style */
-        .card { background: var(--card); border-radius: 16px; padding: 20px; margin-bottom: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); border: 1px solid #edf2f7; }
-        h2, h3 { margin-top: 0; color: var(--primary); }
-        
-        /* Form elements */
-        label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 6px; color: #718096; }
-        input, select, textarea { width: 100%; padding: 12px; margin-bottom: 16px; border: 1.5px solid #edf2f7; border-radius: 10px; font-size: 16px; box-sizing: border-box; }
-        input:focus { border-color: var(--primary); outline: none; }
-        
-        button { background: var(--primary); color: white; border: none; padding: 14px; border-radius: 10px; width: 100%; font-size: 16px; font-weight: 700; cursor: pointer; }
-        .btn-outline { background: white; color: var(--primary); border: 1.5px solid var(--primary); margin-top: 8px; }
-        .btn-danger { background: var(--danger); }
-
-        /* Calendar Adjustments */
-        #calendar { background: white; padding: 10px; border-radius: 16px; border: 1px solid #edf2f7; height: 65vh; }
-        .fc-event { cursor: pointer; border: none !important; padding: 2px 5px; }
-
-        /* Modal Area */
-        #modalOverlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2000; align-items:center; justify-content:center; }
+        :root { --p: #5a67d8; --s: #48bb78; --d: #f56565; --bg: #f7fafc; --card: #ffffff; }
+        body { font-family: sans-serif; background: var(--bg); margin: 0; padding-bottom: 80px; }
+        nav { background: white; display: flex; justify-content: space-around; padding: 15px 0; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        nav div { font-weight: bold; color: #a0aec0; cursor: pointer; }
+        nav div.active { color: var(--p); border-bottom: 2px solid var(--p); }
+        .page { display: none; padding: 15px; max-width: 600px; margin: auto; }
+        .active-p { display: block; }
+        .card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        label { display: block; font-size: 13px; font-weight: bold; margin: 10px 0 5px; color: #4a5568; }
+        input, select, textarea { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        button { background: var(--p); color: white; border: none; padding: 14px; border-radius: 8px; width: 100%; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .btn-s { background: var(--s); }
+        .btn-d { background: var(--d); }
+        .btn-o { background: white; color: var(--p); border: 1px solid var(--p); }
+        #calendar { background: white; padding: 10px; border-radius: 12px; height: 70vh; }
+        .adj-item { font-size: 13px; border-bottom: 1px solid #eee; padding: 8px 0; }
+        .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2000; align-items:center; justify-content:center; }
     </style>
 </head>
 <body>
 
-<nav id="navbar">
-    <div onclick="showP('h', this)" class="active">📅 日曆</div>
-    <div onclick="showP('s', this)">👥 學生</div>
-    <div onclick="showP('settings', this)">⚙️ 停/加課</div>
-    <div onclick="showP('b', this)">💰 帳單</div>
+<nav>
+    <div onclick="showP('h',this)" class="active">📅 日曆</div>
+    <div onclick="showP('s',this)">👥 學生</div>
+    <div onclick="showP('off',this)">🚫 停/加課</div>
+    <div onclick="showP('b',this)">💰 帳單</div>
 </nav>
 
-<div id="h" class="page active-page">
-    <div id="calendar"></div>
-</div>
+<div id="h" class="page active-p"><div id="calendar"></div></div>
 
 <div id="s" class="page">
     <button onclick="openSForm()">+ 新增學生</button>
-    <div id="sList" style="margin-top:20px;"></div>
+    <div id="sList" style="margin-top:15px;"></div>
 </div>
 
-<div id="settings" class="page">
+<div id="off" class="page">
     <div class="card">
-        <h3>全局停課/加課設定</h3>
-        <label>選擇學生</label>
-        <select id="adjStudent"></select>
-        <label>選擇日期</label>
-        <input type="date" id="adjDate">
-        <label>類型</label>
-        <select id="adjType">
-            <option value="off">🔴 停課 (優先級低)</option>
-            <option value="extra">🟢 加課 (優先級高)</option>
-        </select>
-        <button onclick="saveAdj()">儲存變更</button>
+        <h3>1. 全體停課 (國定假日/老師請假)</h3>
+        <label>開始日期</label><input type="date" id="allS">
+        <label>結束日期 (同一天請選相同日期)</label><input type="date" id="allE">
+        <button class="btn-d" onclick="addAdj('ALL', 'off', 'allS', 'allE')">設定全體停課</button>
     </div>
-    <div id="adjList"></div>
+    <div class="card">
+        <h3>2. 個別停課 / 加課</h3>
+        <label>選擇學生</label><select id="oneStudent"></select>
+        <label>開始日期</label><input type="date" id="oneS">
+        <label>結束日期</label><input type="date" id="oneE">
+        <label>類型</label>
+        <select id="oneType">
+            <option value="off">🔴 停課</option>
+            <option value="extra">🟢 加課 (不論週幾都上)</option>
+        </select>
+        <button onclick="addAdj(document.getElementById('oneStudent').value, document.getElementById('oneType').value, 'oneS', 'oneE')">儲存設定</button>
+    </div>
+    <div id="adjLog" class="card"><h3>目前特殊設定</h3><div id="adjList"></div></div>
 </div>
 
 <div id="b" class="page">
@@ -79,36 +68,42 @@
         <label>學生</label><select id="bS" onchange="upB()"></select>
         <label>月份</label><input type="month" id="bM" onchange="upB()">
         <label>教材費</label><input type="number" id="bB" value="0" onchange="upB()">
-    </div>
-    <div class="card">
-        <textarea id="bT" rows="8" style="background:#f1f5f9; border:none;"></textarea>
-        <button onclick="share()" style="background:#00b900;">傳送 LINE</button>
+        <textarea id="bT" rows="8" style="margin-top:15px; background:#f9f9f9;"></textarea>
+        <button class="btn-s" onclick="share()">LINE 分享明細</button>
     </div>
 </div>
 
-<div id="modalOverlay">
-    <div class="card" style="width:90%; max-width:400px;">
-        <h3 id="formT">學生資訊</h3>
+<div id="dayModal" class="modal">
+    <div class="card" style="width:90%; max-width:350px;">
+        <h3 id="mTitle">單日課程調整</h3>
+        <p id="mDateDesc" style="font-size:14px; color:#666;"></p>
+        <label>當天時間 (10分鐘單位)</label><input type="time" id="mT" step="600">
+        <label>當天學費 (不影響平時設定)</label><input type="number" id="mR">
+        <button onclick="saveDayEx()">僅儲存這一天</button>
+        <button class="btn-o" onclick="document.getElementById('dayModal').style.display='none'">取消</button>
+    </div>
+</div>
+
+<div id="sModal" class="modal">
+    <div class="card" style="width:90%; max-width:350px;">
+        <h3>學生基本設定</h3>
         <input type="hidden" id="eIdx">
         <label>姓名</label><input type="text" id="sN">
-        <label>每週上課日</label>
-        <select id="sD">
-            <option value="1">週一</option><option value="2">週二</option><option value="3">週三</option>
-            <option value="4">週四</option><option value="5">週五</option><option value="6">週六</option><option value="0">週日</option>
-        </select>
-        <label>時間 (10分鐘為單位)</label>
-        <input type="time" id="sT" step="600">
-        <label>學費</label><input type="number" id="sR">
-        <button onclick="saveS()">確認儲存</button>
-        <button class="btn-outline" onclick="closeModal()">關閉</button>
-        <button id="delBtn" class="btn-danger" style="margin-top:20px; display:none;">刪除學生</button>
+        <label>週幾</label>
+        <select id="sD"><option value="1">週一</option><option value="2">週二</option><option value="3">週三</option><option value="4">週四</option><option value="5">週五</option><option value="6">週六</option><option value="0">週日</option></select>
+        <label>固定時間</label><input type="time" id="sT" step="600">
+        <label>固定學費</label><input type="number" id="sR">
+        <button onclick="saveS()">儲存設定</button>
+        <button id="delBtn" class="btn-d" style="display:none;">刪除學生</button>
+        <button class="btn-o" onclick="document.getElementById('sModal').style.display='none'">關閉</button>
     </div>
 </div>
 
 <script>
     let ss = JSON.parse(localStorage.getItem('p_ss')) || [];
-    let adjs = JSON.parse(localStorage.getItem('p_adjs')) || []; // {date, name, type}
-    let cal;
+    let adjs = JSON.parse(localStorage.getItem('p_adjs')) || []; // {target, type, start, end}
+    let dayEx = JSON.parse(localStorage.getItem('p_dayEx')) || {}; // { "2023-10-01_學生名": {t, r} }
+    let cal, curEditDate, curEditName;
 
     function fmtT(t) {
         if(!t) return "";
@@ -117,140 +112,161 @@
     }
 
     function showP(id, el) {
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
-        document.getElementById(id).classList.add('active-page');
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active-p'));
+        document.getElementById(id).classList.add('active-p');
         document.querySelectorAll('nav div').forEach(d => d.classList.remove('active'));
-        el.classList.add('active');
+        if(el) el.classList.add('active');
         if(id === 'h') renderCal();
         if(id === 's') renderS();
-        if(id === 'settings') renderAdj();
-        if(id === 'b') upOpt();
+        if(id === 'off') renderAdj();
+        if(id === 'b') { upOpt(); upB(); }
     }
 
+    function save() {
+        localStorage.setItem('p_ss', JSON.stringify(ss));
+        localStorage.setItem('p_adjs', JSON.stringify(adjs));
+        localStorage.setItem('p_dayEx', JSON.stringify(dayEx));
+    }
+
+    // --- 學生管理 ---
     function renderS() {
         document.getElementById('sList').innerHTML = ss.map((s, i) => `
             <div class="card">
-                <div style="font-weight:bold; font-size:18px;">${s.n}</div>
-                <div style="color:#718096; margin-bottom:10px;">週${['日','一','二','三','四','五','六'][s.d]} ${fmtT(s.t)} | $${s.r}</div>
-                <button onclick="openSForm(${i})" class="btn-outline">修改資料</button>
+                <b>${s.n}</b> | 週${['日','一','二','三','四','五','六'][s.d]} ${fmtT(s.t)} ($${s.r})
+                <button onclick="openSForm(${i})" class="btn-o">編輯</button>
             </div>
         `).join('');
     }
-
     function openSForm(i) {
-        document.getElementById('modalOverlay').style.display = 'flex';
-        const delBtn = document.getElementById('delBtn');
+        document.getElementById('sModal').style.display = 'flex';
+        const dBtn = document.getElementById('delBtn');
         if(i != null) {
             document.getElementById('eIdx').value = i;
             document.getElementById('sN').value = ss[i].n;
             document.getElementById('sD').value = ss[i].d;
             document.getElementById('sT').value = ss[i].t;
             document.getElementById('sR').value = ss[i].r;
-            delBtn.style.display = 'block';
-            delBtn.onclick = () => { if(confirm("確定刪除？")) { ss.splice(i, 1); save(); closeModal(); } };
+            dBtn.style.display = 'block';
+            dBtn.onclick = () => { if(confirm("確定刪除？")) { ss.splice(i,1); save(); renderS(); document.getElementById('sModal').style.display='none'; } };
         } else {
             document.getElementById('eIdx').value = "";
             document.getElementById('sN').value = "";
             document.getElementById('sT').value = "14:00";
-            delBtn.style.display = 'none';
+            dBtn.style.display = 'none';
         }
     }
-
-    function closeModal() { document.getElementById('modalOverlay').style.display = 'none'; }
-
     function saveS() {
         let d = { n: document.getElementById('sN').value, d: document.getElementById('sD').value, t: document.getElementById('sT').value, r: document.getElementById('sR').value };
         let i = document.getElementById('eIdx').value;
-        if(i === "") ss.push(d); else ss[i] = d;
-        save(); closeModal();
+        if(i==="") ss.push(d); else ss[i] = d;
+        save(); renderS(); document.getElementById('sModal').style.display='none';
     }
 
-    function save() { 
-        localStorage.setItem('p_ss', JSON.stringify(ss)); 
-        localStorage.setItem('p_adjs', JSON.stringify(adjs));
-        renderS(); 
-    }
-
-    function saveAdj() {
-        let name = document.getElementById('adjStudent').value;
-        let date = document.getElementById('adjDate').value;
-        let type = document.getElementById('adjType').value;
-        if(!date) return alert("請選擇日期");
-        adjs.push({ name, date, type });
+    // --- 停加課邏輯 ---
+    function addAdj(target, type, sId, eId) {
+        let s = document.getElementById(sId).value, e = document.getElementById(eId).value;
+        if(!s || !e) return alert("請選擇日期範圍");
+        adjs.push({ target, type, start: s, end: e });
         save(); renderAdj();
     }
-
     function renderAdj() {
-        document.getElementById('adjStudent').innerHTML = ss.map(s => `<option value="${s.n}">${s.n}</option>`).join('');
-        document.getElementById('adjList').innerHTML = adjs.slice(-5).reverse().map((a, i) => `
-            <div class="card" style="padding:10px; font-size:14px;">
-                ${a.date} | ${a.name} | ${a.type==='off'?'🔴 停課':'🟢 加課'}
-                <span onclick="adjs.splice(${adjs.length-1-i},1);save();renderAdj();" style="float:right; color:red;">刪除</span>
+        document.getElementById('oneStudent').innerHTML = ss.map(s => `<option value="${s.n}">${s.n}</option>`).join('');
+        document.getElementById('adjList').innerHTML = adjs.map((a, i) => `
+            <div class="adj-item">
+                <b>${a.target === 'ALL' ? '📢 全體' : '👤 ' + a.target}</b>: ${a.start} ~ ${a.end} [${a.type==='off'?'停課':'加課'}]
+                <button onclick="adjs.splice(${i},1);save();renderAdj();" style="width:50px; padding:2px; font-size:12px; background:var(--d); float:right;">刪除</button>
+                <div style="clear:both;"></div>
             </div>
         `).join('');
     }
 
+    // --- 日曆功能 ---
     function renderCal() {
         let el = document.getElementById('calendar');
         if(cal) cal.destroy();
         let evs = [];
+        let startBound = new Date(); startBound.setDate(startBound.getDate() - 14);
+
         ss.forEach(s => {
-            for(let i = -14; i < 60; i++) {
-                let d = new Date(); d.setDate(d.getDate() + i);
-                let dateStr = d.toISOString().split('T')[0];
-                if(d.getDay() == s.d) {
-                    let adj = adjs.find(a => a.date === dateStr && a.name === s.n);
-                    if(adj && adj.type === 'off') {
-                        evs.push({ title: '❌ 停課: ' + s.n, start: dateStr, color: '#fed7d7', textColor: '#c53030' });
-                    } else {
-                        evs.push({ title: s.n + ' ' + fmtT(s.t), start: dateStr + 'T' + s.t, color: '#ebf8ff', textColor: '#2b6cb0' });
-                    }
+            for(let i = 0; i < 60; i++) {
+                let d = new Date(startBound); d.setDate(d.getDate() + i);
+                let dStr = d.toISOString().split('T')[0];
+                
+                // 檢查各種優先權
+                let isAllOff = adjs.some(a => a.target === 'ALL' && a.type === 'off' && dStr >= a.start && dStr <= a.end);
+                let isOneOff = adjs.some(a => a.target === s.n && a.type === 'off' && dStr >= a.start && dStr <= a.end);
+                let isOneExtra = adjs.some(a => a.target === s.n && a.type === 'extra' && dStr >= a.start && dStr <= a.end);
+                let ex = dayEx[dStr + "_" + s.n];
+
+                if ((d.getDay() == s.d && !isAllOff && !isOneOff) || isOneExtra) {
+                    let time = ex ? ex.t : s.t;
+                    let rate = ex ? ex.r : s.r;
+                    evs.push({
+                        title: `${s.n} (${fmtT(time)}) $${rate}`,
+                        start: dStr + 'T' + time,
+                        color: isOneExtra ? '#c6f6d5' : '#ebf8ff',
+                        textColor: isOneExtra ? '#22543d' : '#2b6cb0',
+                        extendedProps: { name: s.n, date: dStr, rate: rate, time: time }
+                    });
+                } else if ((d.getDay() == s.d && (isAllOff || isOneOff)) && !isOneExtra) {
+                    evs.push({ title: `❌ ${s.n} 停課`, start: dStr, color: '#fed7d7', textColor: '#c53030' });
                 }
             }
-        });
-        // 加入獨立加課
-        adjs.filter(a => a.type === 'extra').forEach(a => {
-            let sInfo = ss.find(x => x.n === a.name);
-            evs.push({ title: '⭐ 加課: ' + a.name, start: a.date + 'T' + (sInfo?sInfo.t:'12:00'), color: '#c6f6d5', textColor: '#22543d' });
         });
 
         cal = new FullCalendar.Calendar(el, {
             initialView: 'dayGridMonth',
             events: evs,
             locale: 'zh-tw',
-            headerToolbar: { left: 'prev,next', center: 'title', right: 'today' },
-            dateClick: function(info) {
-                document.getElementById('adjDate').value = info.dateStr;
-                showP('settings', document.querySelectorAll('nav div')[2]);
+            eventClick: function(info) {
+                if(info.event.title.includes('停課')) return;
+                let p = info.event.extendedProps;
+                curEditDate = p.date; curEditName = p.name;
+                document.getElementById('mTitle').innerText = p.name;
+                document.getElementById('mDateDesc').innerText = p.date + " 單日微調";
+                document.getElementById('mT').value = p.time;
+                document.getElementById('mR').value = p.rate;
+                document.getElementById('dayModal').style.display = 'flex';
             }
         });
         cal.render();
     }
 
-    function upOpt() {
-        document.getElementById('bS').innerHTML = ss.map((s,i) => `<option value="${i}">${s.n}</option>`).join('');
-        upB();
+    function saveDayEx() {
+        dayEx[curEditDate + "_" + curEditName] = { t: document.getElementById('mT').value, r: document.getElementById('mR').value };
+        save(); renderCal(); document.getElementById('dayModal').style.display='none';
     }
 
+    // --- 帳單 ---
+    function upOpt() {
+        document.getElementById('bS').innerHTML = ss.map((s,i) => `<option value="${i}">${s.n}</option>`).join('');
+        document.getElementById('oneStudent').innerHTML = ss.map(s => `<option value="${s.n}">${s.n}</option>`).join('');
+    }
     function upB() {
         let i = document.getElementById('bS').value; if(!ss[i] || !document.getElementById('bM').value) return;
         let s = ss[i], mStr = document.getElementById('bM').value, b = parseInt(document.getElementById('bB').value)||0;
-        let d = new Date(mStr + "-01"), mon = d.getMonth(), count = 0, dates = [];
+        let d = new Date(mStr + "-01"), mon = d.getMonth(), count = 0, totalR = 0, dates = [];
+        
         while(d.getMonth() === mon) {
             let dStr = d.toISOString().split('T')[0];
-            let adj = adjs.find(a => a.date === dStr && a.name === s.n);
-            // 邏輯：週上課日 且 非停課 OR 額外加課
-            if ((d.getDay() == s.d && (!adj || adj.type !== 'off')) || (adj && adj.type === 'extra')) {
-                count++; dates.push((mon+1)+'/'+d.getDate());
+            let isAllOff = adjs.some(a => a.target === 'ALL' && a.type === 'off' && dStr >= a.start && dStr <= a.end);
+            let isOneOff = adjs.some(a => a.target === s.n && a.type === 'off' && dStr >= a.start && dStr <= a.end);
+            let isOneExtra = adjs.some(a => a.target === s.n && a.type === 'extra' && dStr >= a.start && dStr <= a.end);
+            let ex = dayEx[dStr + "_" + s.n];
+
+            if ((d.getDay() == s.d && !isAllOff && !isOneOff) || isOneExtra) {
+                count++;
+                let currentRate = parseInt(ex ? ex.r : s.r);
+                totalR += currentRate;
+                dates.push(`${mon+1}/${d.getDate()}`);
             }
             d.setDate(d.getDate() + 1);
         }
-        document.getElementById('bT').value = `【${s.n} ${mon+1}月學費明細】\n時間：週${['日','一','二','三','四','五','六'][s.d]} ${fmtT(s.t)}\n上課日：${dates.join(', ')} (共${count}堂)\n學費：$${s.r * count}\n教材費：$${b}\n----------------\n總計：$${(s.r * count) + b}\n再請您核對，謝謝！`;
+        document.getElementById('bT').value = `🎹 ${s.n} ${mon+1}月學費明細：\n上課日：${dates.join(', ')} (共 ${count} 堂)\n課程費用：$${totalR.toLocaleString()}\n教材費用：$${b.toLocaleString()}\n----------------\n總計金額：$${(totalR + b).toLocaleString()}\n謝謝老師！`;
     }
-
     function share() { window.location.href = "https://line.me/R/msg/text/?" + encodeURIComponent(document.getElementById('bT').value); }
 
-    showP('h', document.querySelector('nav div'));
+    showP('h');
 </script>
 </body>
 </html>
