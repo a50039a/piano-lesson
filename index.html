@@ -117,12 +117,13 @@
 
 <div id="dayModal" class="modal">
     <div class="card" style="width:90%; max-width:350px;">
-        <h3>單日微調</h3>
-        <p id="mDateDesc"></p>
+        <h3 id="mTitle"></h3>
+        <p id="mDateDesc" style="color: #5a67d8; font-weight: bold;"></p>
+        <label>當天時段</label>
         <div class="time-row"><input type="time" id="mTs" oninput="updateTimePreviewMulti('mTs','mTe','mTPreview')"><span>~</span><input type="time" id="mTe" oninput="updateTimePreviewMulti('mTs','mTe','mTPreview')"></div>
         <div id="mTPreview" class="time-preview"></div>
         <label>費用</label><input type="number" id="mR">
-        <button onclick="saveDayEx()">儲存</button>
+        <button onclick="saveDayEx()">儲存修改</button>
         <button class="btn-d" style="margin-top:10px;" onclick="delDayEx()">刪除這課堂</button>
         <button class="btn-o" style="margin-top:10px;" onclick="closeModal()">取消</button>
     </div>
@@ -218,15 +219,15 @@
 
                 if(!(ex && ex.deleted)) {
                     if(isExtra) {
-                        let ts = ex?ex.ts:(isExtra.ts||s.ts), te = ex?ex.te:(isExtra.te||s.te);
-                        evs.push({ title:`⭐ ${s.n} ${fmtT(ts)}`, start: dStr+'T'+ts, color:'#c6f6d5', textColor:'#22543d', extendedProps:{name:s.n, date:dStr, rate:ex?ex.r:s.r, ts, te} });
+                        let ts = ex?ex.ts:(isExtra.ts||s.ts), te = ex?ex.te:(isExtra.te||s.te), rate = ex?ex.r:s.r;
+                        evs.push({ title:`⭐ ${s.n} ${fmtT(ts)}`, start: dStr+'T'+ts, color:'#c6f6d5', textColor:'#22543d', extendedProps:{name:s.n, date:dStr, rate:rate, ts:ts, te:te} });
                     } else if (isOneOff && d.getDay()==s.d) {
                         evs.push({ title:`❌ ${s.n} 停課`, start: dStr, color:'#fed7d7', textColor:'#c53030' });
                     } else if (isAllOff && d.getDay()==s.d) {
                         evs.push({ title:`🚫 停課${isAllOff.reason?':'+isAllOff.reason:''} (${s.n})`, start: dStr, color:'#fbb6ce', textColor:'#702459' });
                     } else if (d.getDay()==s.d) {
-                        let ts = ex?ex.ts:s.ts, te = ex?ex.te:s.te;
-                        evs.push({ title:`${s.n} ${fmtT(ts)}`, start: dStr+'T'+ts, color:'#ebf8ff', textColor:'#2b6cb0', extendedProps:{name:s.n, date:dStr, rate:ex?ex.r:s.r, ts, te} });
+                        let ts = ex?ex.ts:s.ts, te = ex?ex.te:s.te, rate = ex?ex.r:s.r;
+                        evs.push({ title:`${s.n} ${fmtT(ts)}`, start: dStr+'T'+ts, color:'#ebf8ff', textColor:'#2b6cb0', extendedProps:{name:s.n, date:dStr, rate:rate, ts:ts, te:te} });
                     }
                 }
                 d.setDate(d.getDate()+1);
@@ -236,10 +237,13 @@
             initialView:'dayGridMonth', locale:'zh-tw', events:evs, headerToolbar:{left:'prev,next', center:'title', right:'today'},
             eventContent:(arg)=>({ domNodes:[Object.assign(document.createElement('div'),{innerText:arg.event.title, style:'font-size:11px;padding:2px'})] }),
             eventClick:(info)=>{
-                let p = info.event.extendedProps; if(!p.name) return;
-                curEditDate=p.date; curEditName=p.name; document.getElementById('mTitle').innerText=p.name; document.getElementById('mDateDesc').innerText=p.date;
+                let p = info.event.extendedProps; 
+                if(!p || !p.name) return; // 停課事件不觸發編輯
+                curEditDate=p.date; curEditName=p.name; 
+                document.getElementById('mTitle').innerText=p.name; document.getElementById('mDateDesc').innerText=p.date;
                 document.getElementById('mTs').value=p.ts; document.getElementById('mTe').value=p.te; document.getElementById('mR').value=p.rate;
-                updateTimePreviewMulti('mTs','mTe','mTPreview'); document.getElementById('dayModal').style.display='flex';
+                updateTimePreviewMulti('mTs','mTe','mTPreview'); 
+                document.getElementById('dayModal').style.display='flex';
             }
         });
         cal.render();
@@ -278,7 +282,7 @@
         document.getElementById('bT').value = `🎹 費用明細 - ${s.n}\n------------------------\n月份：${selectedMonths.map(m => m.replace('-','年')+'月').join('、')}\n上課日期：\n${allD.join('\n')}\n共 ${tCount} 堂\n\n課程費用：$${tR.toLocaleString()}\n教材費用：$${b.toLocaleString()}\n------------------------\n總計金額：$${(tR + b).toLocaleString()}\n\n再麻煩匯款後通知，謝謝！`;
     }
     function saveDayEx() { dayEx[curEditDate + "_" + curEditName] = { ts: document.getElementById('mTs').value, te: document.getElementById('mTe').value, r: document.getElementById('mR').value, deleted: false }; save(); renderCal(); closeModal(); }
-    function delDayEx() { if(confirm('刪除？')){ dayEx[curEditDate+"_"+curEditName]={deleted:true}; save(); renderCal(); closeModal(); } }
+    function delDayEx() { if(confirm('確定要刪除這堂課嗎？')){ dayEx[curEditDate+"_"+curEditName]={deleted:true}; save(); renderCal(); closeModal(); } }
     function closeModal() { document.querySelectorAll('.modal').forEach(m=>m.style.display='none'); }
     function upOpt() { document.getElementById('bS').innerHTML = ss.map(s => `<option value="${s.n}">${s.n}</option>`).join(''); document.getElementById('oneStudent').innerHTML = ss.map(s => `<option value="${s.n}">${s.n}</option>`).join(''); }
     function exportData() { const blob = new Blob([JSON.stringify({ss, adjs, dayEx})], {type:'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `piano_backup.json`; a.click(); }
