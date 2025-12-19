@@ -29,7 +29,6 @@
         .adj-item { font-size: 14px; padding: 12px 0; border-bottom: 1px solid #edf2f7; display: flex; justify-content: space-between; align-items: center; }
         .month-chip { display: inline-block; padding: 10px 15px; margin: 5px; border-radius: 10px; border: 1px solid #e2e8f0; background: white; cursor: pointer; font-size: 14px; transition: 0.2s; }
         .month-chip.selected { background: var(--p); color: white; border-color: var(--p); }
-        .backup-area { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -48,14 +47,6 @@
 <div id="s" class="page">
     <button onclick="openSForm()">+ 新增學生檔案</button>
     <div id="sList" style="margin-top:15px;"></div>
-    <div class="card" style="margin-top:20px;">
-        <h3>💾 資料管理</h3>
-        <div class="backup-area">
-            <button class="btn-o" onclick="exportData()">備份資料</button>
-            <button class="btn-o" onclick="importData()">匯入資料</button>
-            <button class="btn-d" style="grid-column: span 2;" onclick="clearAllData()">🗑️ 清除所有資料</button>
-        </div>
-    </div>
 </div>
 
 <div id="off" class="page">
@@ -63,7 +54,7 @@
         <h3>📢 全體停課</h3>
         <button id="allRangeBtn" class="range-btn">📅 點擊選擇範圍...</button>
         <input type="hidden" id="allRangeVal">
-        <label>原因</label><input type="text" id="allReason" placeholder="例：老師請假">
+        <label>原因</label><input type="text" id="allReason" placeholder="例：國定假日、老師請假">
         <button class="btn-d" style="margin-top:10px;" onclick="addAdj('ALL', 'off', 'allRangeVal', 'allRangeBtn')">確認全體停課</button>
     </div>
     <div class="card">
@@ -85,9 +76,9 @@
         <div id="extraTimeArea" style="display:none;">
             <label>加課時段</label>
             <div class="time-row">
-                <input type="time" id="exTs" oninput="updateTimePreviewMulti('exTs','exTe','exTPreview')">
+                <input type="time" id="exTs" value="12:00" oninput="updateTimePreviewMulti('exTs','exTe','exTPreview')">
                 <span>至</span>
-                <input type="time" id="exTe" oninput="updateTimePreviewMulti('exTs','exTe','exTPreview')">
+                <input type="time" id="exTe" value="12:50" oninput="updateTimePreviewMulti('exTs','exTe','exTPreview')">
             </div>
             <div id="exTPreview" class="time-preview"></div>
             <label>單次加課費用</label>
@@ -164,7 +155,7 @@
         if(el) el.classList.add('active');
         if(id === 'h') renderCal();
         if(id === 's') renderS();
-        if(id === 'off') renderAdj();
+        if(id === 'off') { renderAdj(); updateExRateHint(); }
         if(id === 'b') initBilling();
     }
 
@@ -203,10 +194,12 @@
         document.getElementById('adjReasonArea').style.display = v==='off'?'block':'none'; 
         updateExRateHint();
     }
+
     function updateExRateHint() {
         let name = document.getElementById('oneStudent').value;
         let s = ss.find(x => x.n === name);
         if(s) document.getElementById('exRate').placeholder = `預設：$${s.r}`;
+        updateTimePreviewMulti('exTs','exTe','exTPreview');
     }
 
     function addAdj(target, type, valId, btnId) {
@@ -222,11 +215,17 @@
             r, reason 
         });
         save(); renderAdj(); 
+        
+        // 設定完後初始化
         document.getElementById(btnId).innerText="📅 點擊選擇範圍..."; 
-        if(target === 'ALL') document.getElementById('allReason').value = "";
-        else document.getElementById('adjReason').value = "";
+        document.getElementById('allReason').value = "";
+        document.getElementById('adjReason').value = "";
         document.getElementById('exRate').value = "";
+        document.getElementById('exTs').value = "12:00";
+        document.getElementById('exTe').value = "12:50";
+        document.getElementById(valId).value = "";
         fpAll.clear(); fpOne.clear();
+        updateTimePreviewMulti('exTs','exTe','exTPreview');
     }
 
     function renderAdj() {
@@ -235,7 +234,7 @@
             let info = "";
             if(a.target==='ALL') info = '全體停課'+(a.reason?':'+a.reason:'');
             else if(a.type==='off') info = '停課'+(a.reason?':'+a.reason:'');
-            else info = `加課 ${a.ts||''} ${a.r?'$'+a.r:''}`;
+            else info = `加課 ${a.ts||''}~${a.te||''} ${a.r?'$'+a.r:''}`;
             return `<div class="adj-item"><div><b>${a.target==='ALL'?'📢 全體停課':a.target}</b><br>${a.start} ~ ${a.end} [${info}]</div>
             <button onclick="if(confirm('刪除？')){adjs.splice(${i},1);save();renderAdj();}" style="width:60px;background:var(--d);font-size:12px;margin:0;padding:6px;">刪除</button></div>`;
         }).join('');
@@ -250,23 +249,31 @@
             while(d <= endBound) {
                 let dStr = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
                 
+                // 1. 先找有沒有加課 (加課不論週幾都要顯示)
                 let adjIdx = adjs.findIndex(a => a.target === s.n && a.type === 'extra' && dStr >= a.start && dStr <= a.end);
                 let isExtra = adjIdx !== -1 ? adjs[adjIdx] : null;
+                
+                // 2. 找停課
                 let isOneOff = adjs.find(a => a.target === s.n && a.type === 'off' && dStr >= a.start && dStr <= a.end);
                 let isAllOff = adjs.find(a => a.target === 'ALL' && dStr >= a.start && dStr <= a.end);
                 let ex = dayEx[dStr + "_" + s.n];
 
                 if(!(ex && ex.deleted)) {
                     if(isExtra) {
+                        // 加課發生在任何日期
                         let ts = ex ? ex.ts : (isExtra.ts || s.ts), te = ex ? ex.te : (isExtra.te || s.te);
                         evs.push({ title:`⭐ ${s.n} ${fmtT(ts)}`, start: dStr+'T'+ts, color:'#c6f6d5', textColor:'#22543d', extendedProps:{name:s.n, date:dStr, rate:ex?ex.r:(isExtra.r||s.r), ts, te, adjIdx} });
-                    } else if (isOneOff && d.getDay() == s.d) {
-                        evs.push({ title:`❌ 停課${isOneOff.reason?':'+isOneOff.reason:''} (${s.n})`, start: dStr, color:'#fed7d7', textColor:'#c53030' });
-                    } else if (isAllOff && d.getDay() == s.d) {
-                        evs.push({ title:`🚫 全體停課${isAllOff.reason?':'+isAllOff.reason:''} (${s.n})`, start: dStr, color:'#fbb6ce', textColor:'#702459' });
                     } else if (d.getDay() == s.d) {
-                        let ts = ex ? ex.ts : s.ts, te = ex ? ex.te : s.te;
-                        evs.push({ title:`${s.n} ${fmtT(ts)}`, start: dStr+'T'+ts, color:'#ebf8ff', textColor:'#2b6cb0', extendedProps:{name:s.n, date:dStr, rate:ex?ex.r:s.r, ts, te, adjIdx: -1} });
+                        // 常規課日期，檢查是否有停課
+                        if (isOneOff) {
+                            evs.push({ title:`❌ 停課${isOneOff.reason?':'+isOneOff.reason:''} (${s.n})`, start: dStr, color:'#fed7d7', textColor:'#c53030' });
+                        } else if (isAllOff) {
+                            evs.push({ title:`🚫 全體停課${isAllOff.reason?':'+isAllOff.reason:''} (${s.n})`, start: dStr, color:'#fbb6ce', textColor:'#702459' });
+                        } else {
+                            // 正常上課
+                            let ts = ex ? ex.ts : s.ts, te = ex ? ex.te : s.te;
+                            evs.push({ title:`${s.n} ${fmtT(ts)}`, start: dStr+'T'+ts, color:'#ebf8ff', textColor:'#2b6cb0', extendedProps:{name:s.n, date:dStr, rate:ex?ex.r:s.r, ts, te, adjIdx: -1} });
+                        }
                     }
                 }
                 d.setDate(d.getDate()+1);
@@ -329,9 +336,6 @@
     function delDayEx() { if(confirm('刪除？')){ dayEx[curEditDate+"_"+curEditName]={deleted:true}; save(); renderCal(); closeModal(); } }
     function closeModal() { document.querySelectorAll('.modal').forEach(m=>m.style.display='none'); }
     function upOpt() { document.getElementById('bS').innerHTML = ss.map(s => `<option value="${s.n}">${s.n}</option>`).join(''); document.getElementById('oneStudent').innerHTML = ss.map(s => `<option value="${s.n}">${s.n}</option>`).join(''); }
-    function exportData() { const blob = new Blob([JSON.stringify({ss, adjs, dayEx})], {type:'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `piano_backup.json`; a.click(); }
-    function importData() { const input = document.createElement('input'); input.type = 'file'; input.onchange = e => { const reader = new FileReader(); reader.onload = () => { const d = JSON.parse(reader.result); ss=d.ss; adjs=d.adjs; dayEx=d.dayEx; save(); location.reload(); }; reader.readAsText(e.target.files[0]); }; input.click(); }
-    function clearAllData() { if(confirm("確定清除？") && confirm("最後確認？")) { localStorage.clear(); location.reload(); } }
     function share() { window.location.href = "https://line.me/R/msg/text/?" + encodeURIComponent(document.getElementById('bT').value); }
     showP('h');
 </script>
