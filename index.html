@@ -7,9 +7,9 @@
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
     <style>
         :root { --p: #5a67d8; --s: #48bb78; --d: #f56565; --bg: #f8fafc; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); margin: 0; padding-bottom: 80px; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding-bottom: 80px; }
         nav { background: white; display: flex; justify-content: space-around; padding: 15px 0; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        nav div { font-weight: bold; color: #a0aec0; cursor: pointer; padding: 5px 10px; }
+        nav div { font-weight: bold; color: #a0aec0; cursor: pointer; padding: 5px 10px; font-size: 14px; }
         nav div.active { color: var(--p); border-bottom: 2px solid var(--p); }
         .page { display: none; padding: 15px; max-width: 600px; margin: auto; }
         .active-p { display: block; }
@@ -21,6 +21,7 @@
         #calendar { background: white; padding: 10px; border-radius: 15px; height: 75vh; }
         .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2000; align-items:center; justify-content:center; }
         .row { display: flex; gap: 10px; } .row > div { flex: 1; }
+        .adj-item { font-size: 13px; padding: 12px 0; border-bottom: 1px solid #edf2f7; display: flex; justify-content: space-between; align-items: center; }
     </style>
 </head>
 <body>
@@ -35,7 +36,7 @@
 <div id="h" class="page active-p"><div id="calendar"></div></div>
 
 <div id="s" class="page">
-    <button onclick="openSForm()">+ 新增學生</button>
+    <button onclick="openSForm()">+ 新增學生檔案</button>
     <div id="sList" style="margin-top:15px;"></div>
 </div>
 
@@ -70,7 +71,7 @@
         <label>選擇學生</label><select id="bS" onchange="upB()"></select>
         <label>選擇月份</label><input type="month" id="bM" onchange="upB()">
         <label>教材費</label><input type="number" id="bB" value="0" onchange="upB()">
-        <textarea id="bT" rows="9" style="margin-top:15px; background:#f8fafc; font-family: monospace;"></textarea>
+        <textarea id="bT" rows="9" style="margin-top:15px; background:#f8fafc; font-family: sans-serif;"></textarea>
         <button class="btn-s" onclick="share()">LINE 分享帳單</button>
     </div>
 </div>
@@ -81,7 +82,7 @@
         <p id="mDateDesc" style="font-size:14px; color:#666;"></p>
         <label>當天時間</label><input type="time" id="mT" step="600">
         <label>當天費用</label><input type="number" id="mR">
-        <button onclick="saveDayEx()">僅修改這一天</button>
+        <button onclick="saveDayEx()">儲存</button>
         <button class="btn-o" onclick="closeModal()">取消</button>
     </div>
 </div>
@@ -95,7 +96,7 @@
         <select id="sD"><option value="1">週一</option><option value="2">週二</option><option value="3">週三</option><option value="4">週四</option><option value="5">週五</option><option value="6">週六</option><option value="0">週日</option></select>
         <label>時間</label><input type="time" id="sT" step="600">
         <label>學費</label><input type="number" id="sR">
-        <p style="font-size:11px; color:var(--d);">* 修改將於「今天(含)之後」生效，歷史紀錄不變。</p>
+        <p style="font-size:11px; color:var(--d);">* 修改將於「今天(含)之後」生效，歷史紀錄將被保留。</p>
         <button onclick="saveS()">確認儲存</button>
         <button id="delBtn" class="btn-d" style="display:none;">刪除學生</button>
         <button class="btn-o" onclick="closeModal()">關閉</button>
@@ -150,7 +151,7 @@
             document.getElementById('sT').value = ss[i].t;
             document.getElementById('sR').value = ss[i].r;
             dBtn.style.display = 'block';
-            dBtn.onclick = () => { if(confirm("刪除後歷史帳單仍會保留，確定？")) { ss.splice(i,1); save(); renderS(); closeModal(); } };
+            dBtn.onclick = () => { if(confirm(`確定刪除學生「${ss[i].n}」？\n刪除後歷史帳單仍會保留。`)) { ss.splice(i,1); save(); renderS(); closeModal(); } };
         } else {
             document.getElementById('eIdx').value = ""; document.getElementById('sN').value = ""; document.getElementById('sT').value = "14:00"; dBtn.style.display = 'none';
         }
@@ -159,14 +160,12 @@
     function saveS() {
         const today = new Date().toISOString().split('T')[0];
         let i = document.getElementById('eIdx').value;
-        let newData = { n: document.getElementById('sN').value, d: document.getElementById('sD').value, t: document.getElementById('sT').value, r: document.getElementById('sR').value, effectiveDate: today };
+        let newData = { n: document.getElementById('sN').value, d: document.getElementById('sD').value, t: document.getElementById('sT').value, r: document.getElementById('sR').value };
         
         if(i==="") {
             ss.push(newData);
         } else {
-            // 關鍵：將舊設定存入歷史紀錄 (History)
             if(!ss[i].history) ss[i].history = [];
-            // 只有當設定真的有變時才存歷史
             if(ss[i].t !== newData.t || ss[i].r !== newData.r || ss[i].d !== newData.d) {
                 ss[i].history.push({ d: ss[i].d, t: ss[i].t, r: ss[i].r, until: today });
             }
@@ -182,24 +181,35 @@
         if(!s || !e) return alert("請選擇日期");
         adjs.push({ target, type, start: s, end: e });
         save(); renderAdj();
-        // 清除所選資訊
         document.getElementById(sId).value = ""; document.getElementById(eId).value = "";
     }
 
     function renderAdj() {
         document.getElementById('oneStudent').innerHTML = ss.map(s => `<option value="${s.n}">${s.n}</option>`).join('');
         document.getElementById('adjList').innerHTML = adjs.map((a, i) => `
-            <div style="font-size:13px; padding:10px 0; border-bottom:1px solid #eee;">
-                <b>${a.target === 'ALL' ? '📢 全體' : '👤 ' + a.target}</b>: ${a.start} ~ ${a.end} [${a.type==='off'?'停課':'加課'}]
-                <button onclick="adjs.splice(${i},1);save();renderAdj();" style="width:50px; padding:2px; font-size:11px; background:var(--d); float:right; margin:0;">刪除</button>
+            <div class="adj-item">
+                <div>
+                    <b>${a.target === 'ALL' ? '📢 全體' : '👤 ' + a.target}</b><br>
+                    <small>${a.start} ~ ${a.end} [${a.type==='off'?'停課':'加課'}]</small>
+                </div>
+                <button onclick="confirmDelAdj(${i})" style="width:60px; padding:6px; font-size:12px; background:var(--d); margin:0;">刪除</button>
             </div>
         `).join('');
     }
 
+    function confirmDelAdj(idx) {
+        const a = adjs[idx];
+        const targetName = a.target === 'ALL' ? '全體停課' : `學生 ${a.target} 的特殊設定`;
+        if(confirm(`確定要刪除「${targetName}」嗎？`)) {
+            adjs.splice(idx, 1);
+            save();
+            renderAdj();
+        }
+    }
+
     function getStudentInfoForDate(student, dateStr) {
-        // 如果有歷史紀錄，且該日期在歷史範圍內
         if(student.history) {
-            let hist = student.history.find(h => dateStr < h.until);
+            let hist = [...student.history].sort((a,b) => b.until.localeCompare(a.until)).find(h => dateStr < h.until);
             if(hist) return hist;
         }
         return student;
@@ -209,11 +219,11 @@
         let el = document.getElementById('calendar');
         if(cal) cal.destroy();
         let evs = [];
-        let now = new Date();
+        let startBound = new Date(); startBound.setDate(startBound.getDate() - 30);
         
         ss.forEach(s => {
-            for(let i = -30; i < 60; i++) {
-                let d = new Date(); d.setDate(now.getDate() + i);
+            for(let i = 0; i < 90; i++) {
+                let d = new Date(startBound); d.setDate(d.getDate() + i);
                 let dStr = d.toISOString().split('T')[0];
                 let info = getStudentInfoForDate(s, dStr);
                 
@@ -226,7 +236,7 @@
                     let time = ex ? ex.t : info.t;
                     let rate = ex ? ex.r : info.r;
                     evs.push({
-                        title: `${s.n} ${fmtT(time)}`, // 學生名稱在前
+                        title: `${s.n} ${fmtT(time)}`,
                         start: dStr + 'T' + time,
                         color: isOneExtra ? '#c6f6d5' : '#ebf8ff',
                         textColor: isOneExtra ? '#22543d' : '#2b6cb0',
