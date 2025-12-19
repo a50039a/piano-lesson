@@ -3,73 +3,217 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>鋼琴教學計算器 Pro</title>
+    <title>鋼琴教學管理系統</title>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
     <style>
-        :root { --primary: #2d3748; --accent: #48bb78; }
-        body { font-family: sans-serif; background: #f0f2f5; padding: 15px; }
-        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 400px; margin: auto; }
-        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-        button { width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; margin-top: 10px; cursor: pointer; }
-        .line-btn { background: #00b900; margin-top: 10px; }
-        .history { margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px; font-size: 14px; }
+        :root { --primary: #4a5568; --accent: #48bb78; --nav-bg: #2d3748; }
+        body { font-family: -apple-system, sans-serif; margin: 0; background: #f7fafc; padding-bottom: 60px; }
+        
+        /* 導覽列 */
+        nav { background: var(--nav-bg); color: white; display: flex; justify-content: space-around; padding: 12px; position: sticky; top: 0; z-index: 1000; }
+        nav div { cursor: pointer; font-weight: bold; }
+
+        .page { display: none; padding: 15px; max-width: 800px; margin: auto; }
+        .active { display: block; }
+
+        /* 卡片樣式 */
+        .card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        input, select, textarea { width: 100%; padding: 10px; margin: 5px 0 15px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        button { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; font-size: 16px; cursor: pointer; }
+        .delete-btn { background: #f56565; margin-top: 5px; }
+
+        /* 日曆高度 */
+        #calendar { background: white; padding: 10px; border-radius: 12px; height: 70vh; }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <h2>🎹 鋼琴學費計算</h2>
-    <input type="text" id="name" placeholder="學生姓名">
-    <input type="number" id="rate" placeholder="單堂學費 (預設 800)">
-    <input type="number" id="lessons" placeholder="本月堂數">
-    <input type="number" id="books" placeholder="教材費用">
-    
-    <button onclick="saveAndCalc()">計算並儲存</button>
-    <button class="line-btn" onclick="shareLine()">傳送 LINE 給家長</button>
+<nav>
+    <div onclick="showPage('home')">首頁日曆</div>
+    <div onclick="showPage('students')">學生管理</div>
+    <div onclick="showPage('billing')">費用結算</div>
+</nav>
 
-    <div id="result" style="margin-top:15px; font-weight:bold; color:#e53e3e; text-align:center;"></div>
-    
-    <div class="history">
-        <p>上一次紀錄：<span id="lastRecord">無</span></p>
+<div id="home" class="page active">
+    <div id="calendar"></div>
+</div>
+
+<div id="students" class="page">
+    <button onclick="editStudent(null)">+ 新增學生</button>
+    <div id="studentList" style="margin-top: 15px;"></div>
+
+    <div id="editForm" class="card" style="display:none;">
+        <h3 id="formTitle">編輯學生</h3>
+        <input type="hidden" id="editIdx">
+        <label>姓名</label><input type="text" id="sName">
+        <label>每週上課日</label>
+        <select id="sDay">
+            <option value="1">星期一</option><option value="2">星期二</option><option value="3">星期三</option>
+            <option value="4">星期四</option><option value="5">星期五</option><option value="6">星期六</option><option value="0">星期日</option>
+        </select>
+        <label>上課時間</label><input type="time" id="sTime">
+        <label>單堂費用</label><input type="number" id="sRate">
+        <button onclick="saveStudent()">儲存學生資訊</button>
+        <button class="delete-btn" onclick="hideEdit()">取消</button>
+    </div>
+</div>
+
+<div id="billing" class="page">
+    <div class="card">
+        <h3>計算月份帳單</h3>
+        <label>選擇學生</label><select id="billStudent" onchange="updateBillPreview()"></select>
+        <label>選擇月份</label><input type="month" id="billMonth" onchange="updateBillPreview()">
+        <label>本月教材費</label><input type="number" id="billBooks" value="0" onchange="updateBillPreview()">
+        <label>停課日期 (多個日期請用逗號隔開, 例如: 05, 12)</label>
+        <input type="text" id="billOffDays" placeholder="輸入日期數字" onchange="updateBillPreview()">
+    </div>
+
+    <div class="card">
+        <h3>帳單預覽 (可直接編輯文字)</h3>
+        <textarea id="billText" rows="6"></textarea>
+        <button onclick="shareToLine()" style="background:#00b900;">傳送 LINE 分享</button>
     </div>
 </div>
 
 <script>
-    // 網頁開啟時，自動讀取上次的單價
-    window.onload = function() {
-        if(localStorage.getItem('piano_rate')) {
-            document.getElementById('rate').value = localStorage.getItem('piano_rate');
+    let students = JSON.parse(localStorage.getItem('piano_students')) || [];
+    let calendar;
+
+    function showPage(id) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        if(id === 'home') renderCalendar();
+        if(id === 'students') renderStudents();
+        if(id === 'billing') updateBillOptions();
+    }
+
+    // --- 學生管理邏輯 ---
+    function renderStudents() {
+        const list = document.getElementById('studentList');
+        list.innerHTML = students.map((s, i) => `
+            <div class="card">
+                <strong>${s.name}</strong> - 週${['日','一','二','三','四','五','六'][s.day]} ${s.time} ($${s.rate})
+                <button onclick="editStudent(${i})" style="margin-top:10px; background:#4a5568;">修改資訊</button>
+            </div>
+        `).join('');
+    }
+
+    function editStudent(idx) {
+        document.getElementById('editForm').style.display = 'block';
+        if(idx !== null) {
+            const s = students[idx];
+            document.getElementById('editIdx').value = idx;
+            document.getElementById('sName').value = s.name;
+            document.getElementById('sDay').value = s.day;
+            document.getElementById('sTime').value = s.time;
+            document.getElementById('sRate').value = s.rate;
+        } else {
+            document.getElementById('editIdx').value = "";
+            document.getElementById('sName').value = "";
         }
-        showLast();
-    };
+    }
 
-    function saveAndCalc() {
-        const n = document.getElementById('name').value || "學生";
-        const r = document.getElementById('rate').value || 800;
-        const l = document.getElementById('lessons').value || 0;
-        const b = document.getElementById('books').value || 0;
-        const total = (r * l) + parseInt(b);
-
-        const summary = `${n} 本月學費：$${r}x${l}堂 + 教材$${b} = 總計$${total}`;
-        document.getElementById('result').innerText = `總金額：$${total}`;
+    function saveStudent() {
+        const idx = document.getElementById('editIdx').value;
+        const data = {
+            name: document.getElementById('sName').value,
+            day: document.getElementById('sDay').value,
+            time: document.getElementById('sTime').value,
+            rate: document.getElementById('sRate').value
+        };
+        if(idx === "") students.push(data);
+        else students[idx] = data;
         
-        // 儲存到瀏覽器記憶體
-        localStorage.setItem('piano_rate', r);
-        localStorage.setItem('last_summary', summary);
-        showLast();
+        localStorage.setItem('piano_students', JSON.stringify(students));
+        hideEdit();
+        renderStudents();
     }
 
-    function showLast() {
-        const last = localStorage.getItem('last_summary');
-        if(last) document.getElementById('lastRecord').innerText = last;
+    function hideEdit() { document.getElementById('editForm').style.display = 'none'; }
+
+    // --- 日曆邏輯 ---
+    function renderCalendar() {
+        const calEl = document.getElementById('calendar');
+        if(calendar) calendar.destroy();
+        
+        let events = [];
+        const now = new Date();
+
+        students.forEach(s => {
+            // 自動生成未來三個月的課程
+            for(let i = 0; i < 90; i++) {
+                let d = new Date();
+                d.setDate(now.getDate() + i);
+                if(d.getDay() == s.day) {
+                    events.push({
+                        title: s.name,
+                        start: d.toISOString().split('T')[0] + 'T' + s.time
+                    });
+                }
+            }
+        });
+
+        calendar = new FullCalendar.Calendar(calEl, {
+            initialView: 'dayGridMonth',
+            events: events,
+            headerToolbar: { left: 'prev,next', center: 'title', right: 'today' },
+            locale: 'zh-tw'
+        });
+        calendar.render();
     }
 
-    function shareLine() {
-        const summary = localStorage.getItem('last_summary');
-        if(!summary) return alert("請先計算金額");
-        const url = "https://line.me/R/msg/text/?" + encodeURIComponent("您好，這是本月的鋼琴教學費用明細：\n" + summary);
-        window.location.href = url;
+    // --- 帳單邏輯 ---
+    function updateBillOptions() {
+        const sel = document.getElementById('billStudent');
+        sel.innerHTML = students.map((s,i) => `<option value="${i}">${s.name}</option>`).join('');
+        updateBillPreview();
     }
+
+    function updateBillPreview() {
+        const idx = document.getElementById('billStudent').value;
+        if(!students[idx]) return;
+        const s = students[idx];
+        const monthStr = document.getElementById('billMonth').value; // YYYY-MM
+        const books = parseInt(document.getElementById('billBooks').value) || 0;
+        const offDays = document.getElementById('billOffDays').value.split(',').map(d => d.trim());
+
+        if(!monthStr) return;
+
+        let date = new Date(monthStr + "-01");
+        let year = date.getFullYear();
+        let month = date.getMonth();
+        let count = 0;
+        let activeDates = [];
+
+        let d = new Date(year, month, 1);
+        while(d.getMonth() === month) {
+            if(d.getDay() == s.day) {
+                let dayNum = d.getDate().toString().padStart(2, '0');
+                if(!offDays.includes(dayNum)) {
+                    count++;
+                    activeDates.push(dayNum);
+                }
+            }
+            d.setDate(d.getDate() + 1);
+        }
+
+        const total = (count * s.rate) + books;
+        const text = `【${month + 1}月學費明細 - ${s.name}】\n` +
+                     `單堂學費：$${s.rate}\n` +
+                     `上課日期：${activeDates.join(', ')} (共${count}堂)\n` +
+                     `教材費用：$${books}\n` +
+                     `----------------\n` +
+                     `總計金額：$${total}`;
+        document.getElementById('billText').value = text;
+    }
+
+    function shareToLine() {
+        const msg = document.getElementById('billText').value;
+        window.location.href = "https://line.me/R/msg/text/?" + encodeURIComponent(msg);
+    }
+
+    // 初始化
+    showPage('home');
 </script>
-
 </body>
 </html>
