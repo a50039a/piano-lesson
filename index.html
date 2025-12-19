@@ -5,9 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>鋼琴教學管理</title>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/zh-tw.js"></script>
     <style>
         :root { --p: #5a67d8; --s: #48bb78; --d: #f56565; --bg: #f8fafc; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding-bottom: 80px; }
+        body { font-family: -apple-system, "Microsoft JhengHei", sans-serif; background: var(--bg); margin: 0; padding-bottom: 80px; }
         nav { background: white; display: flex; justify-content: space-around; padding: 15px 0; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         nav div { font-weight: bold; color: #a0aec0; cursor: pointer; padding: 5px 10px; font-size: 14px; }
         nav div.active { color: var(--p); border-bottom: 2px solid var(--p); }
@@ -20,9 +23,11 @@
         .btn-s { background: var(--s); } .btn-d { background: var(--d); } .btn-o { background: white; color: var(--p); border: 1.5px solid var(--p); }
         #calendar { background: white; padding: 10px; border-radius: 15px; height: 70vh; }
         .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2000; align-items:center; justify-content:center; }
-        .row { display: flex; gap: 10px; } .row > div { flex: 1; }
+        .range-btn { background: #edf2f7; color: #2d3748; text-align: left; position: relative; border: 1.5px solid #e2e8f0; }
         .month-chip { display: inline-block; padding: 8px 12px; margin: 4px; border-radius: 20px; border: 1px solid #e2e8f0; cursor: pointer; font-size: 14px; }
         .month-chip.selected { background: var(--p); color: white; border-color: var(--p); }
+        /* 強制修正 FullCalendar 內的文字換行與顯示 */
+        .fc-event-title { white-space: normal !important; font-weight: bold !important; }
     </style>
 </head>
 <body>
@@ -35,7 +40,7 @@
 </nav>
 
 <div id="h" class="page active-p">
-    <h2 style="text-align:center; color:var(--p);">鋼琴教學管理</h2>
+    <h2 style="text-align:center; color:var(--p); margin: 10px 0;">鋼琴教學管理</h2>
     <div id="calendar"></div>
 </div>
 
@@ -47,41 +52,34 @@
 <div id="off" class="page">
     <div class="card">
         <h3>1. 全體停課設定</h3>
-        <div class="row">
-            <div><label>開始</label><input type="date" id="allS"></div>
-            <div><label>結束</label><input type="date" id="allE"></div>
-        </div>
-        <button class="btn-d" onclick="addAdj('ALL', 'off', 'allS', 'allE')">確認全體停課</button>
+        <label>選擇時間範圍</label>
+        <button id="allRangeBtn" class="range-btn">點擊開啟日曆選擇範圍...</button>
+        <input type="hidden" id="allRangeVal">
+        <button class="btn-d" onclick="addAdj('ALL', 'off', 'allRangeVal')">確認設定全體停課</button>
     </div>
     <div class="card">
         <h3>2. 個別 停課 / 加課</h3>
         <label>選擇學生</label><select id="oneStudent"></select>
-        <div class="row">
-            <div><label>開始</label><input type="date" id="oneS"></div>
-            <div><label>結束</label><input type="date" id="oneE"></div>
-        </div>
+        <label>選擇時間範圍</label>
+        <button id="oneRangeBtn" class="range-btn">點擊開啟日曆選擇範圍...</button>
+        <input type="hidden" id="oneRangeVal">
         <label>類型</label>
         <select id="oneType">
             <option value="off">🔴 停課</option>
             <option value="extra">🟢 加課</option>
         </select>
-        <button onclick="addAdj(document.getElementById('oneStudent').value, document.getElementById('oneType').value, 'oneS', 'oneE')">儲存設定</button>
+        <button onclick="addAdj(document.getElementById('oneStudent').value, document.getElementById('oneType').value, 'oneRangeVal')">確認設定</button>
     </div>
     <div class="card"><h3>目前設定清單</h3><div id="adjList"></div></div>
 </div>
 
 <div id="b" class="page">
     <div class="card">
-        <label>選擇學生</label>
-        <select id="bS" onchange="renderMonthPicker(); upB();"></select>
-        
+        <label>選擇學生</label><select id="bS" onchange="renderMonthPicker(); upB();"></select>
         <label>選擇月份 (可複選)</label>
         <div id="monthPicker" style="margin-bottom: 10px;"></div>
-
-        <label>教材費</label>
-        <input type="number" id="bB" value="0" onchange="upB()">
-        
-        <textarea id="bT" rows="11" style="margin-top:15px; background:#f8fafc; font-family: sans-serif; font-size: 14px;"></textarea>
+        <label>教材費</label><input type="number" id="bB" value="0" onchange="upB()">
+        <textarea id="bT" rows="11" style="margin-top:15px; background:#f8fafc; font-size: 14px;"></textarea>
         <button class="btn-s" onclick="share()">LINE 分享明細</button>
     </div>
 </div>
@@ -119,6 +117,11 @@
     let dayEx = JSON.parse(localStorage.getItem('p_dayEx')) || {};
     let selectedMonths = [];
     let cal, curEditDate, curEditName;
+
+    // 初始化日期範圍選擇器 (Flatpickr)
+    const fpConfig = { mode: "range", locale: "zh_tw", dateFormat: "Y-m-d", allowInput: true };
+    const fpAll = flatpickr("#allRangeBtn", { ...fpConfig, onChange: (dates, str) => document.getElementById('allRangeVal').value = str });
+    const fpOne = flatpickr("#oneRangeBtn", { ...fpConfig, onChange: (dates, str) => document.getElementById('oneRangeVal').value = str });
 
     function fmtT(t) {
         if(!t) return "";
@@ -171,7 +174,7 @@
     function saveS() {
         const today = new Date().toISOString().split('T')[0];
         let i = document.getElementById('eIdx').value;
-        let newData = { n: document.getElementById('sN').value, d: document.getElementById('sD').value, t: document.getElementById('sT').value, r: document.getElementById('sR').value };
+        let newData = { n: document.getElementById('sN').value, d: parseInt(document.getElementById('sD').value), t: document.getElementById('sT').value, r: document.getElementById('sR').value };
         if(i==="") { ss.push(newData); } else {
             if(!ss[i].history) ss[i].history = [];
             if(ss[i].t !== newData.t || ss[i].r !== newData.r || ss[i].d !== newData.d) {
@@ -182,22 +185,24 @@
         save(); renderS(); closeModal();
     }
 
-    function closeModal() { document.querySelectorAll('.modal').forEach(m=>m.style.display='none'); }
-
-    function addAdj(target, type, sId, eId) {
-        let s = document.getElementById(sId).value, e = document.getElementById(eId).value;
-        if(!s || !e) return alert("請選擇日期");
+    function addAdj(target, type, valId) {
+        let val = document.getElementById(valId).value;
+        if(!val) return alert("請先選擇日期範圍");
+        let [s, e] = val.split(" 到 ");
+        if(!e) e = s; // 如果只選一天
         adjs.push({ target, type, start: s, end: e });
         save(); renderAdj();
-        document.getElementById(sId).value = ""; document.getElementById(eId).value = "";
+        // 清除選擇
+        document.getElementById(valId).value = "";
+        fpAll.clear(); fpOne.clear();
     }
 
     function renderAdj() {
         document.getElementById('oneStudent').innerHTML = ss.map(s => `<option value="${s.n}">${s.n}</option>`).join('');
         document.getElementById('adjList').innerHTML = adjs.map((a, i) => `
-            <div class="adj-item" style="border-bottom:1px solid #eee; padding:10px 0; display:flex; justify-content:space-between;">
-                <div><b>${a.target === 'ALL' ? '📢 全體' : '👤 ' + a.target}</b><br><small>${a.start} ~ ${a.end}</small></div>
-                <button onclick="if(confirm('刪除？')){adjs.splice(${i},1);save();renderAdj();}" style="width:50px; background:var(--d); font-size:12px; margin:0; padding:5px;">刪除</button>
+            <div class="adj-item" style="border-bottom:1px solid #eee; padding:10px 0; display:flex; justify-content:space-between; align-items:center;">
+                <div><b>${a.target === 'ALL' ? '📢 全體停課' : '👤 ' + a.target}</b><br><small>${a.start} ~ ${a.end} [${a.type==='off'?'停課':'加課'}]</small></div>
+                <button onclick="if(confirm('確定刪除此設定？')){adjs.splice(${i},1);save();renderAdj();}" style="width:60px; background:var(--d); font-size:12px; margin:0; padding:5px;">刪除</button>
             </div>
         `).join('');
     }
@@ -215,16 +220,14 @@
         if(cal) cal.destroy();
         let evs = [];
         let now = new Date();
-        let currentYear = now.getFullYear();
-        
-        // 邏輯 2: 只初始化顯示當年度 & 之後三個月
-        let startBound = new Date(currentYear, 0, 1); // 當年 1/1
-        let endBound = new Date(now.getFullYear(), now.getMonth() + 4, 0); // 往後三個月底
+        let startBound = new Date(now.getFullYear(), 0, 1);
+        let endBound = new Date(now.getFullYear(), now.getMonth() + 4, 0);
 
         ss.forEach(s => {
             let d = new Date(startBound);
             while(d <= endBound) {
-                let dStr = d.toISOString().split('T')[0];
+                // 修正時區偏移導致日期偏差
+                let dStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
                 let info = getStudentInfoForDate(s, dStr);
                 let isAllOff = adjs.some(a => a.target === 'ALL' && a.type === 'off' && dStr >= a.start && dStr <= a.end);
                 let isOneOff = adjs.some(a => a.target === s.n && a.type === 'off' && dStr >= a.start && dStr <= a.end);
@@ -234,7 +237,7 @@
                 if (!(ex && ex.deleted) && ((d.getDay() == info.d && !isAllOff && !isOneOff) || isOneExtra)) {
                     let time = ex ? ex.t : info.t;
                     evs.push({
-                        title: `${s.n} ${fmtT(time)}`,
+                        title: `${s.n} ${fmtT(time)}`, // 文字順序：學生名稱在前
                         start: dStr + 'T' + time,
                         color: isOneExtra ? '#c6f6d5' : '#ebf8ff',
                         textColor: isOneExtra ? '#22543d' : '#2b6cb0',
@@ -252,6 +255,14 @@
             events: evs,
             locale: 'zh-tw',
             headerToolbar: { left: 'prev,next', center: 'title', right: 'today' },
+            eventContent: function(arg) {
+                // 強制自定義渲染，解決先顯示時間的問題
+                let italicEl = document.createElement('div');
+                italicEl.innerHTML = arg.event.title;
+                italicEl.style.fontSize = '12px';
+                italicEl.style.padding = '2px';
+                return { domNodes: [italicEl] };
+            },
             eventClick: function(info) {
                 if(info.event.title.includes('停課')) return;
                 let p = info.event.extendedProps;
@@ -283,75 +294,58 @@
         document.getElementById('oneStudent').innerHTML = ss.map(s => `<option value="${s.n}">${s.n}</option>`).join('');
     }
 
-    // 邏輯 3: 費用月份選擇器 (只顯示有課的月份)
     function renderMonthPicker() {
         let i = document.getElementById('bS').value; if(!ss[i]) return;
-        let s = ss[i];
-        let availableMonths = new Set();
-        let now = new Date();
-        let start = new Date(now.getFullYear(), 0, 1);
-        let end = new Date(now.getFullYear(), now.getMonth() + 4, 0);
-
+        let s = ss[i], availableMonths = new Set(), now = new Date();
+        let start = new Date(now.getFullYear(), 0, 1), end = new Date(now.getFullYear(), now.getMonth() + 4, 0);
         let d = new Date(start);
         while(d <= end) {
-            let dStr = d.toISOString().split('T')[0];
+            let dStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
             let info = getStudentInfoForDate(s, dStr);
             let isAllOff = adjs.some(a => a.target === 'ALL' && a.type === 'off' && dStr >= a.start && dStr <= a.end);
             let isOneOff = adjs.some(a => a.target === s.n && a.type === 'off' && dStr >= a.start && dStr <= a.end);
             let isOneExtra = adjs.some(a => a.target === s.n && a.type === 'extra' && dStr >= a.start && dStr <= a.end);
             let ex = dayEx[dStr + "_" + s.n];
-
             if (!(ex && ex.deleted) && ((d.getDay() == info.d && !isAllOff && !isOneOff) || isOneExtra)) {
                 availableMonths.add(dStr.substring(0, 7));
             }
             d.setDate(d.getDate() + 1);
         }
-
         let sorted = Array.from(availableMonths).sort();
-        document.getElementById('monthPicker').innerHTML = sorted.map(m => {
-            let isSel = selectedMonths.includes(m);
-            return `<div class="month-chip ${isSel?'selected':''}" onclick="toggleMonth('${m}')">${m}</div>`;
-        }).join('');
+        document.getElementById('monthPicker').innerHTML = sorted.map(m => `<div class="month-chip ${selectedMonths.includes(m)?'selected':''}" onclick="toggleMonth('${m}')">${m}</div>`).join('');
     }
 
     function toggleMonth(m) {
         if(selectedMonths.includes(m)) selectedMonths = selectedMonths.filter(x => x !== m);
         else selectedMonths.push(m);
-        renderMonthPicker();
-        upB();
+        renderMonthPicker(); upB();
     }
 
     function upB() {
         let i = document.getElementById('bS').value; if(!ss[i] || selectedMonths.length === 0) { document.getElementById('bT').value = ""; return; }
-        let s = ss[i], b = parseInt(document.getElementById('bB').value)||0;
-        let totalCount = 0, totalR = 0, allDates = [];
-
+        let s = ss[i], b = parseInt(document.getElementById('bB').value)||0, totalCount = 0, totalR = 0, allDates = [];
         selectedMonths.sort().forEach(mStr => {
-            let d = new Date(mStr + "-01"), mon = d.getMonth();
-            let monthDates = [];
+            let d = new Date(mStr + "-01"), mon = d.getMonth(), monthDates = [];
             while(d.getMonth() === mon) {
-                let dStr = d.toISOString().split('T')[0];
+                let dStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
                 let info = getStudentInfoForDate(s, dStr);
                 let isAllOff = adjs.some(a => a.target === 'ALL' && a.type === 'off' && dStr >= a.start && dStr <= a.end);
                 let isOneOff = adjs.some(a => a.target === s.n && a.type === 'off' && dStr >= a.start && dStr <= a.end);
                 let isOneExtra = adjs.some(a => a.target === s.n && a.type === 'extra' && dStr >= a.start && dStr <= a.end);
                 let ex = dayEx[dStr + "_" + s.n];
-
                 if (!(ex && ex.deleted) && ((d.getDay() == info.d && !isAllOff && !isOneOff) || isOneExtra)) {
-                    totalCount++;
-                    totalR += parseInt(ex ? ex.r : info.r);
-                    monthDates.push(d.getDate());
+                    totalCount++; totalR += parseInt(ex ? ex.r : info.r); monthDates.push(d.getDate());
                 }
                 d.setDate(d.getDate() + 1);
             }
             allDates.push(`${mStr.split('-')[1]}月(${monthDates.join(',')})`);
         });
-
         let monthTitle = selectedMonths.map(m => m.replace('-','年')+'月').join('、');
         document.getElementById('bT').value = `🎹 費用明細 - ${s.n}\n------------------------\n月份：${monthTitle}\n上課日期：\n${allDates.join('\n')}\n共 ${totalCount} 堂\n\n課程費用：$${totalR.toLocaleString()}\n教材費用：$${b.toLocaleString()}\n------------------------\n總計金額：$${(totalR + b).toLocaleString()}\n\n再麻煩匯款後通知，謝謝！`;
     }
 
     function share() { window.location.href = "https://line.me/R/msg/text/?" + encodeURIComponent(document.getElementById('bT').value); }
+    function closeModal() { document.querySelectorAll('.modal').forEach(m=>m.style.display='none'); }
     showP('h');
 </script>
 </body>
