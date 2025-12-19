@@ -635,7 +635,7 @@
             if(dayList.length > 0) { let mNum = mStr.split('-')[1].replace(/^0+/, ''); monthLines.push(`${mNum}月：${dayList.join('、')}`); }
         });
         let monthTitle = selectedMonths.map(m => m.split('-')[0] + '年' + m.split('-')[1].replace(/^0+/, '') + '月').join('、');
-        document.getElementById('bT').value = `🎹 鋼琴課費用明細 - ${s.n}\n------------------------\n月份：${monthTitle}\n上課日期：\n${monthLines.join('\n')}\n共 ${tCount} 堂\n\n課程費用：$${tR.toLocaleString()}\n教材費用：$${b.toLocaleString()}\n------------------------\n總計金額：$${(tR + b).toLocaleString()}\n\n再麻煩匯款後通知，謝謝！`;
+        document.getElementById('bT').value = `🎹 鋼琴課費用明細 - ${s.n}\n------------------------\n上課月份：${monthTitle}\n上課日期：\n${monthLines.join('\n')}\n共 ${tCount} 堂\n\n課程費用：$${tR.toLocaleString()}\n教材費用：$${b.toLocaleString()}\n------------------------\n總計金額：$${(tR + b).toLocaleString()}\n\n再麻煩匯款後通知，謝謝！`;
     }
     function saveDayEx() { 
         let ts = document.getElementById('mTs').value, te = document.getElementById('mTe').value, r = document.getElementById('mR').value;
@@ -653,3 +653,4 @@
 </script>
 </body>
 </html>
+
