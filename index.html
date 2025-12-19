@@ -94,4 +94,163 @@
         <label>每週上課日</label>
         <select id="sD">
             <option value="1">週一</option><option value="2">週二</option><option value="3">週三</option>
-            <option value="4
+            <option value="4">週四</option><option value="5">週五</option><option value="6">週六</option><option value="0">週日</option>
+        </select>
+        <label>時間 (10分鐘為單位)</label>
+        <input type="time" id="sT" step="600">
+        <label>學費</label><input type="number" id="sR">
+        <button onclick="saveS()">確認儲存</button>
+        <button class="btn-outline" onclick="closeModal()">關閉</button>
+        <button id="delBtn" class="btn-danger" style="margin-top:20px; display:none;">刪除學生</button>
+    </div>
+</div>
+
+<script>
+    let ss = JSON.parse(localStorage.getItem('p_ss')) || [];
+    let adjs = JSON.parse(localStorage.getItem('p_adjs')) || []; // {date, name, type}
+    let cal;
+
+    function fmtT(t) {
+        if(!t) return "";
+        let [h, m] = t.split(':');
+        return (h >= 12 ? '下午 ' : '上午 ') + (h%12||12) + ':' + m;
+    }
+
+    function showP(id, el) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
+        document.getElementById(id).classList.add('active-page');
+        document.querySelectorAll('nav div').forEach(d => d.classList.remove('active'));
+        el.classList.add('active');
+        if(id === 'h') renderCal();
+        if(id === 's') renderS();
+        if(id === 'settings') renderAdj();
+        if(id === 'b') upOpt();
+    }
+
+    function renderS() {
+        document.getElementById('sList').innerHTML = ss.map((s, i) => `
+            <div class="card">
+                <div style="font-weight:bold; font-size:18px;">${s.n}</div>
+                <div style="color:#718096; margin-bottom:10px;">週${['日','一','二','三','四','五','六'][s.d]} ${fmtT(s.t)} | $${s.r}</div>
+                <button onclick="openSForm(${i})" class="btn-outline">修改資料</button>
+            </div>
+        `).join('');
+    }
+
+    function openSForm(i) {
+        document.getElementById('modalOverlay').style.display = 'flex';
+        const delBtn = document.getElementById('delBtn');
+        if(i != null) {
+            document.getElementById('eIdx').value = i;
+            document.getElementById('sN').value = ss[i].n;
+            document.getElementById('sD').value = ss[i].d;
+            document.getElementById('sT').value = ss[i].t;
+            document.getElementById('sR').value = ss[i].r;
+            delBtn.style.display = 'block';
+            delBtn.onclick = () => { if(confirm("確定刪除？")) { ss.splice(i, 1); save(); closeModal(); } };
+        } else {
+            document.getElementById('eIdx').value = "";
+            document.getElementById('sN').value = "";
+            document.getElementById('sT').value = "14:00";
+            delBtn.style.display = 'none';
+        }
+    }
+
+    function closeModal() { document.getElementById('modalOverlay').style.display = 'none'; }
+
+    function saveS() {
+        let d = { n: document.getElementById('sN').value, d: document.getElementById('sD').value, t: document.getElementById('sT').value, r: document.getElementById('sR').value };
+        let i = document.getElementById('eIdx').value;
+        if(i === "") ss.push(d); else ss[i] = d;
+        save(); closeModal();
+    }
+
+    function save() { 
+        localStorage.setItem('p_ss', JSON.stringify(ss)); 
+        localStorage.setItem('p_adjs', JSON.stringify(adjs));
+        renderS(); 
+    }
+
+    function saveAdj() {
+        let name = document.getElementById('adjStudent').value;
+        let date = document.getElementById('adjDate').value;
+        let type = document.getElementById('adjType').value;
+        if(!date) return alert("請選擇日期");
+        adjs.push({ name, date, type });
+        save(); renderAdj();
+    }
+
+    function renderAdj() {
+        document.getElementById('adjStudent').innerHTML = ss.map(s => `<option value="${s.n}">${s.n}</option>`).join('');
+        document.getElementById('adjList').innerHTML = adjs.slice(-5).reverse().map((a, i) => `
+            <div class="card" style="padding:10px; font-size:14px;">
+                ${a.date} | ${a.name} | ${a.type==='off'?'🔴 停課':'🟢 加課'}
+                <span onclick="adjs.splice(${adjs.length-1-i},1);save();renderAdj();" style="float:right; color:red;">刪除</span>
+            </div>
+        `).join('');
+    }
+
+    function renderCal() {
+        let el = document.getElementById('calendar');
+        if(cal) cal.destroy();
+        let evs = [];
+        ss.forEach(s => {
+            for(let i = -14; i < 60; i++) {
+                let d = new Date(); d.setDate(d.getDate() + i);
+                let dateStr = d.toISOString().split('T')[0];
+                if(d.getDay() == s.d) {
+                    let adj = adjs.find(a => a.date === dateStr && a.name === s.n);
+                    if(adj && adj.type === 'off') {
+                        evs.push({ title: '❌ 停課: ' + s.n, start: dateStr, color: '#fed7d7', textColor: '#c53030' });
+                    } else {
+                        evs.push({ title: s.n + ' ' + fmtT(s.t), start: dateStr + 'T' + s.t, color: '#ebf8ff', textColor: '#2b6cb0' });
+                    }
+                }
+            }
+        });
+        // 加入獨立加課
+        adjs.filter(a => a.type === 'extra').forEach(a => {
+            let sInfo = ss.find(x => x.n === a.name);
+            evs.push({ title: '⭐ 加課: ' + a.name, start: a.date + 'T' + (sInfo?sInfo.t:'12:00'), color: '#c6f6d5', textColor: '#22543d' });
+        });
+
+        cal = new FullCalendar.Calendar(el, {
+            initialView: 'dayGridMonth',
+            events: evs,
+            locale: 'zh-tw',
+            headerToolbar: { left: 'prev,next', center: 'title', right: 'today' },
+            dateClick: function(info) {
+                document.getElementById('adjDate').value = info.dateStr;
+                showP('settings', document.querySelectorAll('nav div')[2]);
+            }
+        });
+        cal.render();
+    }
+
+    function upOpt() {
+        document.getElementById('bS').innerHTML = ss.map((s,i) => `<option value="${i}">${s.n}</option>`).join('');
+        upB();
+    }
+
+    function upB() {
+        let i = document.getElementById('bS').value; if(!ss[i] || !document.getElementById('bM').value) return;
+        let s = ss[i], mStr = document.getElementById('bM').value, b = parseInt(document.getElementById('bB').value)||0;
+        let d = new Date(mStr + "-01"), mon = d.getMonth(), count = 0, dates = [];
+        while(d.getMonth() === mon) {
+            let dStr = d.toISOString().split('T')[0];
+            let adj = adjs.find(a => a.date === dStr && a.name === s.n);
+            // 邏輯：週上課日 且 非停課 OR 額外加課
+            if ((d.getDay() == s.d && (!adj || adj.type !== 'off')) || (adj && adj.type === 'extra')) {
+                count++; dates.push((mon+1)+'/'+d.getDate());
+            }
+            d.setDate(d.getDate() + 1);
+        }
+        document.getElementById('bT').value = `【${s.n} ${mon+1}月學費明細】\n時間：週${['日','一','二','三','四','五','六'][s.d]} ${fmtT(s.t)}\n上課日：${dates.join(', ')} (共${count}堂)\n學費：$${s.r * count}\n教材費：$${b}\n----------------\n總計：$${(s.r * count) + b}\n再請您核對，謝謝！`;
+    }
+
+    function share() { window.location.href = "https://line.me/R/msg/text/?" + encodeURIComponent(document.getElementById('bT').value); }
+
+    showP('h', document.querySelector('nav div'));
+</script>
+</body>
+</html>
