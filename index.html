@@ -38,6 +38,7 @@
     <div onclick="showP('s',this)">👥 學生</div>
     <div onclick="showP('off',this)">🚫 停/加課</div>
     <div onclick="showP('b',this)">💰 費用</div>
+    <div onclick="showP('m',this)">⚙️ 管理</div>
 </nav>
 
 <div id="h" class="page active-p">
@@ -67,22 +68,15 @@
             <option value="off">🔴 停課</option>
             <option value="extra">🟢 加課</option>
         </select>
-        
-        <div id="adjReasonArea">
-            <label>停課原因</label>
-            <input type="text" id="adjReason" placeholder="例：感冒請假">
-        </div>
-
+        <div id="adjReasonArea"><label>停課原因</label><input type="text" id="adjReason" placeholder="例：感冒請假"></div>
         <div id="extraTimeArea" style="display:none;">
             <label>加課時段</label>
             <div class="time-row">
                 <input type="time" id="exTs" value="12:00" oninput="updateTimePreviewMulti('exTs','exTe','exTPreview')">
-                <span>至</span>
-                <input type="time" id="exTe" value="12:50" oninput="updateTimePreviewMulti('exTs','exTe','exTPreview')">
+                <span>至</span><input type="time" id="exTe" value="12:50" oninput="updateTimePreviewMulti('exTs','exTe','exTPreview')">
             </div>
             <div id="exTPreview" class="time-preview"></div>
-            <label>單次加課費用</label>
-            <input type="number" id="exRate" placeholder="預設使用基本學費">
+            <label>單次加課費用</label><input type="number" id="exRate" placeholder="預設學費">
         </div>
         <button style="margin-top:10px;" onclick="addAdj(document.getElementById('oneStudent').value, document.getElementById('oneType').value, 'oneRangeVal', 'oneRangeBtn')">確認設定</button>
     </div>
@@ -96,6 +90,19 @@
         <label>教材費</label><input type="number" id="bB" value="0" onchange="upB()">
         <textarea id="bT" rows="11" style="margin-top:15px; background:#f8fafc; font-size: 14px; border:none;"></textarea>
         <button class="btn-s" style="margin-top:10px;" onclick="share()">LINE 分享明細</button>
+    </div>
+</div>
+
+<div id="m" class="page">
+    <div class="card">
+        <h3>⚙️ 資料管理</h3>
+        <label>備份資料</label>
+        <button class="btn-o" onclick="exportData()">下載備份檔 (.json)</button>
+        <label style="margin-top:20px;">匯入資料</label>
+        <input type="file" id="importFile" accept=".json" style="padding:10px; border:1px dashed #ccc;">
+        <button class="btn-s" style="margin-top:10px;" onclick="importData()">開始匯入</button>
+        <label style="margin-top:20px; color:var(--d);">危險區域</label>
+        <button class="btn-d" onclick="clearData()">清空所有資料</button>
     </div>
 </div>
 
@@ -116,10 +123,8 @@
 
 <div id="dayModal" class="modal">
     <div class="card" style="width:90%; max-width:350px;">
-        <h3 id="mTitle"></h3>
-        <p id="mDateDesc" style="color: #5a67d8; font-weight: bold;"></p>
+        <h3 id="mTitle"></h3><p id="mDateDesc" style="color:var(--p); font-weight:bold;"></p>
         <input type="hidden" id="mAdjIdx">
-        <label>當天時段</label>
         <div class="time-row"><input type="time" id="mTs"><span>~</span><input type="time" id="mTe"></div>
         <div id="mTPreview" class="time-preview"></div>
         <label>學費</label><input type="number" id="mR">
@@ -141,35 +146,100 @@
         document.getElementById(target).innerText = (s && e) ? `確認時段：${fmtT(s)} ~ ${fmtT(e)}` : "";
     }
 
-    const fpConfig = { 
-        mode: "range", locale: "zh_tw", dateFormat: "Y-m-d",
-        onClose: function(dates, str, instance) { instance.element.innerText = str.replace(/ (至|到) /g, " ~ ") || "📅 點擊選擇範圍..."; }
-    };
-    const fpAll = flatpickr("#allRangeBtn", { ...fpConfig, onChange: (d, str) => document.getElementById('allRangeVal').value = str });
-    const fpOne = flatpickr("#oneRangeBtn", { ...fpConfig, onChange: (d, str) => document.getElementById('oneRangeVal').value = str });
+    const fpConfig = { mode: "range", locale: "zh_tw", dateFormat: "Y-m-d", onClose: (d,s,i)=>i.element.innerText=s.replace(/ 到 /g,"~")||"📅 點擊選擇範圍..." };
+    const fpAll = flatpickr("#allRangeBtn", { ...fpConfig, onChange: (d,s)=>document.getElementById('allRangeVal').value=s });
+    const fpOne = flatpickr("#oneRangeBtn", { ...fpConfig, onChange: (d,s)=>document.getElementById('oneRangeVal').value=s });
+
+    function save() { localStorage.setItem('p_ss', JSON.stringify(ss)); localStorage.setItem('p_adjs', JSON.stringify(adjs)); localStorage.setItem('p_dayEx', JSON.stringify(dayEx)); }
+
+    function renderCal() {
+        if(cal) cal.destroy();
+        let evs = [], now = new Date();
+        let startBound = new Date(now.getFullYear(), 0, 1), endBound = new Date(now.getFullYear(), now.getMonth() + 4, 0);
+        
+        let d = new Date(startBound);
+        while(d <= endBound) {
+            // 修正時區偏差：手動組合成 YYYY-MM-DD
+            let dStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            let dayOfWeek = d.getDay();
+
+            ss.forEach(s => {
+                let isExtra = adjs.find(a => a.target === s.n && a.type === 'extra' && dStr >= a.start && dStr <= a.end);
+                let isOneOff = adjs.find(a => a.target === s.n && a.type === 'off' && dStr >= a.start && dStr <= a.end);
+                let isAllOff = adjs.find(a => a.target === 'ALL' && dStr >= a.start && dStr <= a.end);
+                let ex = dayEx[dStr + "_" + s.n];
+
+                if (!(ex && ex.deleted)) {
+                    if (isExtra) {
+                        let ts = ex?ex.ts:(isExtra.ts||s.ts), te = ex?ex.te:(isExtra.te||s.te);
+                        evs.push({ title:`⭐ ${s.n} ${fmtT(ts)}`, start:dStr+'T'+ts, color:'#c6f6d5', textColor:'#22543d', extendedProps:{name:s.n, date:dStr, rate:ex?ex.r:(isExtra.r||s.r), ts, te, adjIdx: adjs.indexOf(isExtra)} });
+                    } else if (dayOfWeek == s.d) {
+                        if (isOneOff) evs.push({ title:`❌ 停課:${isOneOff.reason||''} (${s.n})`, start:dStr, color:'#fed7d7', textColor:'#c53030' });
+                        else if (isAllOff) evs.push({ title:`🚫 全體停課 (${s.n})`, start:dStr, color:'#fbb6ce', textColor:'#702459' });
+                        else {
+                            let ts = ex?ex.ts:s.ts, te = ex?ex.te:s.te;
+                            evs.push({ title:`${s.n} ${fmtT(ts)}`, start:dStr+'T'+ts, color:'#ebf8ff', textColor:'#2b6cb0', extendedProps:{name:s.n, date:dStr, rate:ex?ex.r:s.r, ts, te, adjIdx:-1} });
+                        }
+                    }
+                }
+            });
+            d.setDate(d.getDate() + 1);
+        }
+        cal = new FullCalendar.Calendar(document.getElementById('calendar'), {
+            initialView:'dayGridMonth', locale:'zh-tw', events:evs, headerToolbar:{left:'prev,next',center:'title',right:'today'},
+            eventClick:(info)=>{
+                let p = info.event.extendedProps; if(!p.name) return;
+                curEditDate=p.date; curEditName=p.name;
+                document.getElementById('mTitle').innerText=p.name; document.getElementById('mDateDesc').innerText=p.date;
+                document.getElementById('mTs').value=p.ts; document.getElementById('mTe').value=p.te; document.getElementById('mR').value=p.rate;
+                document.getElementById('mAdjIdx').value=p.adjIdx;
+                document.getElementById('dayModal').style.display='flex';
+            }
+        });
+        cal.render();
+    }
 
     function showP(id, el) {
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active-p'));
+        document.querySelectorAll('.page').forEach(p=>p.classList.remove('active-p'));
         document.getElementById(id).classList.add('active-p');
-        document.querySelectorAll('nav div').forEach(d => d.classList.remove('active'));
+        document.querySelectorAll('nav div').forEach(d=>d.classList.remove('active'));
         if(el) el.classList.add('active');
-        if(id === 'h') renderCal();
-        if(id === 's') renderS();
-        if(id === 'off') { renderAdj(); updateExRateHint(); }
-        if(id === 'b') initBilling();
+        if(id==='h') renderCal(); if(id==='s') renderS(); if(id==='off') renderAdj(); if(id==='b') initBilling();
     }
 
-    function save() {
-        localStorage.setItem('p_ss', JSON.stringify(ss));
-        localStorage.setItem('p_adjs', JSON.stringify(adjs));
-        localStorage.setItem('p_dayEx', JSON.stringify(dayEx));
+    // --- 資料管理功能 ---
+    function exportData() {
+        const data = { ss, adjs, dayEx };
+        const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `piano_backup_${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
     }
+
+    function importData() {
+        const file = document.getElementById('importFile').files[0];
+        if(!file) return alert("請選擇檔案");
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                if(data.ss && data.adjs) {
+                    ss = data.ss; adjs = data.adjs; dayEx = data.dayEx || {};
+                    save(); alert("匯入成功！"); location.reload();
+                } else alert("檔案格式不符");
+            } catch(err) { alert("讀取失敗"); }
+        };
+        reader.readAsText(file);
+    }
+
+    function clearData() { if(confirm("確定要清空所有學生與停課紀錄嗎？此動作不可復原！")) { localStorage.clear(); location.reload(); } }
 
     function renderS() {
         document.getElementById('sList').innerHTML = ss.map((s, i) => `
-            <div class="card"><b>${s.n}</b> | 週${['日','一','二','三','四','五','六'][s.d]} ${fmtT(s.ts)}~${fmtT(s.te)} ($${s.r})
-            <div style="display:flex; gap:8px; margin-top:10px;"><button class="btn-o" style="flex:1;" onclick="openSForm(${i})">修改資料</button>
-            <button class="btn-d" style="flex:1;" onclick="if(confirm('刪除學生？')){ss.splice(${i},1);save();renderS();}">刪除</button></div></div>`).join('');
+            <div class="card"><b>${s.n}</b> | 週${['日','一','二','三','四','五','六'][s.d]} ${fmtT(s.ts)}~${fmtT(s.te)}
+            <div style="display:flex; gap:8px; margin-top:10px;"><button class="btn-o" onclick="openSForm(${i})">修改</button>
+            <button class="btn-d" onclick="if(confirm('刪除？')){ss.splice(${i},1);save();renderS();}">刪除</button></div></div>`).join('');
     }
 
     function openSForm(i) {
@@ -180,7 +250,6 @@
         } else {
             document.getElementById('eIdx').value=""; document.getElementById('sN').value=""; document.getElementById('sTs').value="14:00"; document.getElementById('sTe').value="15:00";
         }
-        updateTimePreviewMulti('sTs','sTe','sTPreview');
     }
 
     function saveS() {
@@ -189,160 +258,55 @@
         save(); renderS(); closeModal();
     }
 
-    function toggleAdjFields(v) { 
-        document.getElementById('extraTimeArea').style.display = v==='extra'?'block':'none'; 
-        document.getElementById('adjReasonArea').style.display = v==='off'?'block':'none'; 
-        updateExRateHint();
-    }
-
-    function updateExRateHint() {
-        let name = document.getElementById('oneStudent').value;
-        let s = ss.find(x => x.n === name);
-        if(s) document.getElementById('exRate').placeholder = `預設：$${s.r}`;
-        updateTimePreviewMulti('exTs','exTe','exTPreview');
-    }
-
     function addAdj(target, type, valId, btnId) {
-        let val = document.getElementById(valId).value; if(!val) return alert("請選擇範圍");
-        let parts = val.replace(/ (至|到) /g, "~").split("~");
-        let start = parts[0].trim(), end = (parts[1]||parts[0]).trim();
-        let r = (type === 'extra' && document.getElementById('exRate').value) ? document.getElementById('exRate').value : null;
-        let reason = (type === 'off' || target === 'ALL') ? (target === 'ALL' ? document.getElementById('allReason').value : document.getElementById('adjReason').value) : "";
-
-        adjs.push({ 
-            target, type, start, end,
-            ts: type==='extra'?document.getElementById('exTs').value:null, 
-            te: type==='extra'?document.getElementById('exTe').value:null, 
-            r, reason 
-        });
-        save(); renderAdj(); 
-        document.getElementById(btnId).innerText="📅 點擊選擇範圍..."; 
-        document.getElementById('allReason').value = ""; document.getElementById('adjReason').value = ""; document.getElementById('exRate').value = "";
-        fpAll.clear(); fpOne.clear();
+        let val = document.getElementById(valId).value; if(!val) return alert("請選擇日期");
+        let parts = val.split("~");
+        adjs.push({ target, type, start:parts[0], end:parts[1]||parts[0], ts:document.getElementById('exTs').value, te:document.getElementById('exTe').value, r:document.getElementById('exRate').value, reason:document.getElementById('adjReason').value || document.getElementById('allReason').value });
+        save(); renderAdj(); document.getElementById(btnId).innerText="📅 點擊選擇範圍..."; fpAll.clear(); fpOne.clear();
     }
 
     function renderAdj() {
         document.getElementById('oneStudent').innerHTML = ss.map(s => `<option value="${s.n}">${s.n}</option>`).join('');
-        document.getElementById('adjList').innerHTML = adjs.map((a, i) => {
-            let info = "";
-            if(a.target==='ALL') info = '全體停課'+(a.reason?':'+a.reason:'');
-            else if(a.type==='off') info = '停課'+(a.reason?':'+a.reason:'');
-            else info = `加課 ${a.ts||''}~${a.te||''} ${a.r?'$'+a.r:''}`;
-            return `<div class="adj-item"><div><b>${a.target==='ALL'?'📢 全體':a.target}</b><br>${a.start} ~ ${a.end} [${info}]</div>
-            <button onclick="if(confirm('刪除？')){adjs.splice(${i},1);save();renderAdj();renderCal();}" style="width:60px;background:var(--d);font-size:12px;margin:0;padding:6px;">刪除</button></div>`;
-        }).join('');
+        document.getElementById('adjList').innerHTML = adjs.map((a, i) => `
+            <div class="adj-item"><div><b>${a.target==='ALL'?'📢 全體':a.target}</b><br>${a.start}~${a.end}</div>
+            <button class="btn-d" style="width:60px; padding:5px;" onclick="adjs.splice(${i},1);save();renderAdj();">刪除</button></div>`).join('');
     }
 
-    function renderCal() {
-        if(cal) cal.destroy();
-        let evs = [], now = new Date(), startBound = new Date(now.getFullYear(), 0, 1), endBound = new Date(now.getFullYear(), now.getMonth() + 4, 0);
-        
-        // 遍歷當前渲染範圍內的每一天
-        let dCursor = new Date(startBound);
-        while(dCursor <= endBound) {
-            let dStr = dCursor.toISOString().split('T')[0];
-            
-            ss.forEach(s => {
-                // 優先權 1: 檢查這天是否有個別加課 (加課不限原本是週幾)
-                let adjIdx = adjs.findIndex(a => a.target === s.n && a.type === 'extra' && dStr >= a.start && dStr <= a.end);
-                let isExtra = adjIdx !== -1 ? adjs[adjIdx] : null;
-                
-                // 檢查是否有停課 (全體或個別)
-                let isOneOff = adjs.find(a => a.target === s.n && a.type === 'off' && dStr >= a.start && dStr <= a.end);
-                let isAllOff = adjs.find(a => a.target === 'ALL' && dStr >= a.start && dStr <= a.end);
-                
-                // 檢查是否有單日微調或刪除
-                let ex = dayEx[dStr + "_" + s.n];
-
-                if (!(ex && ex.deleted)) {
-                    if (isExtra) {
-                        // 🟢 加課邏輯：只要設定了加課，不論週幾都畫出來
-                        let ts = ex ? ex.ts : (isExtra.ts || s.ts), te = ex ? ex.te : (isExtra.te || s.te);
-                        evs.push({ 
-                            title: `⭐ ${s.n} ${fmtT(ts)}~${fmtT(te)}`, 
-                            start: dStr + 'T' + ts, 
-                            color: '#c6f6d5', 
-                            textColor: '#22543d', 
-                            extendedProps: { name: s.n, date: dStr, rate: ex ? ex.r : (isExtra.r || s.r), ts, te, adjIdx } 
-                        });
-                    } else if (dCursor.getDay() == s.d) {
-                        // 🔵 常規課邏輯：僅在學生的上課日檢查
-                        if (isOneOff) {
-                            evs.push({ title: `❌ 停課:${isOneOff.reason || ''} (${s.n})`, start: dStr, color: '#fed7d7', textColor: '#c53030' });
-                        } else if (isAllOff) {
-                            evs.push({ title: `🚫 全體停課:${isAllOff.reason || ''} (${s.n})`, start: dStr, color: '#fbb6ce', textColor: '#702459' });
-                        } else {
-                            let ts = ex ? ex.ts : s.ts, te = ex ? ex.te : s.te;
-                            evs.push({ 
-                                title: `${s.n} ${fmtT(ts)}~${fmtT(te)}`, 
-                                start: dStr + 'T' + ts, 
-                                color: '#ebf8ff', 
-                                textColor: '#2b6cb0', 
-                                extendedProps: { name: s.n, date: dStr, rate: ex ? ex.r : s.r, ts, te, adjIdx: -1 } 
-                            });
-                        }
-                    }
-                }
-            });
-            dCursor.setDate(dCursor.getDate() + 1);
-        }
-
-        cal = new FullCalendar.Calendar(document.getElementById('calendar'), {
-            initialView: 'dayGridMonth', locale: 'zh-tw', events: evs, headerToolbar: { left: 'prev,next', center: 'title', right: 'today' },
-            eventContent: (arg) => ({ domNodes: [Object.assign(document.createElement('div'), { innerText: arg.event.title, style: 'font-size:11px;padding:2px' })] }),
-            eventClick: (info) => {
-                let p = info.event.extendedProps; if (!p || !p.name) return;
-                curEditDate = p.date; curEditName = p.name;
-                document.getElementById('mTitle').innerText = p.name; document.getElementById('mDateDesc').innerText = p.date;
-                document.getElementById('mTs').value = p.ts; document.getElementById('mTe').value = p.te; document.getElementById('mR').value = p.rate;
-                document.getElementById('mAdjIdx').value = p.adjIdx;
-                updateTimePreviewMulti('mTs', 'mTe', 'mTPreview'); document.getElementById('dayModal').style.display = 'flex';
-            }
-        });
-        cal.render();
-    }
-
-    function initBilling() { selectedMonths = []; document.getElementById('bB').value = 0; document.getElementById('bT').value = ""; upOpt(); renderMonthPicker(); }
+    function initBilling() { selectedMonths=[]; document.getElementById('bB').value=0; upOpt(); renderMonthPicker(); }
+    function upOpt() { document.getElementById('bS').innerHTML = ss.map(s => `<option value="${s.n}">${s.n}</option>`).join(''); }
     function renderMonthPicker() {
-        let n = document.getElementById('bS').value; if (!n) return;
-        let s = ss.find(x => x.n === n), avMonths = new Set(), d = new Date(new Date().getFullYear(), 0, 1), end = new Date(new Date().getFullYear(), new Date().getMonth() + 4, 0);
-        while (d <= end) {
-            let dStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-            let isAllOff = adjs.some(a => a.target === 'ALL' && dStr >= a.start && dStr <= a.end), isOneOff = adjs.some(a => a.target === s.n && a.type === 'off' && dStr >= a.start && dStr <= a.end), isExtra = adjs.some(a => a.target === s.n && a.type === 'extra' && dStr >= a.start && dStr <= a.end), ex = dayEx[dStr + "_" + s.n];
-            if (!(ex && ex.deleted) && ((d.getDay() == s.d && !isAllOff && !isOneOff) || isExtra)) avMonths.add(dStr.substring(0, 7));
-            d.setDate(d.getDate() + 1);
+        let n = document.getElementById('bS').value; if(!n) return;
+        let s = ss.find(x=>x.n===n), avMonths = new Set(), d = new Date(new Date().getFullYear(), 0, 1), end = new Date(new Date().getFullYear(), 11, 31);
+        while(d <= end) {
+            let dStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            if(d.getDay()==s.d) avMonths.add(dStr.substring(0,7));
+            d.setDate(d.getDate()+1);
         }
-        document.getElementById('monthPicker').innerHTML = Array.from(avMonths).sort().map(m => `<div class="month-chip ${selectedMonths.includes(m) ? 'selected' : ''}" onclick="toggleMonth('${m}')">${m}</div>`).join('');
+        document.getElementById('monthPicker').innerHTML = Array.from(avMonths).sort().map(m => `<div class="month-chip ${selectedMonths.includes(m)?'selected':''}" onclick="toggleMonth('${m}')">${m}</div>`).join('');
     }
-    function toggleMonth(m) { if (selectedMonths.includes(m)) selectedMonths = selectedMonths.filter(x => x !== m); else selectedMonths.push(m); renderMonthPicker(); upB(); }
+    function toggleMonth(m) { if(selectedMonths.includes(m)) selectedMonths = selectedMonths.filter(x=>x!==m); else selectedMonths.push(m); renderMonthPicker(); upB(); }
     function upB() {
-        let n = document.getElementById('bS').value; if (!n || selectedMonths.length === 0) return;
-        let s = ss.find(x => x.n === n), b = parseInt(document.getElementById('bB').value) || 0, tCount = 0, tR = 0, allD = [];
-        selectedMonths.sort().forEach(mStr => {
-            let d = new Date(mStr + "-01"), mon = d.getMonth(), mDates = [];
-            while (d.getMonth() === mon) {
-                let dStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-                let isAllOff = adjs.find(a => a.target === 'ALL' && dStr >= a.start && dStr <= a.end), isOneOff = adjs.some(a => a.target === s.n && a.type === 'off' && dStr >= a.start && dStr <= a.end), isExtra = adjs.find(a => a.target === s.n && a.type === 'extra' && dStr >= a.start && dStr <= a.end), ex = dayEx[dStr + "_" + s.n];
-                if (!(ex && ex.deleted) && ((d.getDay() == s.d && !isAllOff && !isOneOff) || isExtra)) {
-                    tCount++; tR += parseInt(ex ? ex.r : (isExtra && isExtra.r ? isExtra.r : s.r));
-                    let ts = ex ? ex.ts : (isExtra ? (isExtra.ts || s.ts) : s.ts), te = ex ? ex.te : (isExtra ? (isExtra.te || s.te) : s.te);
-                    mDates.push(`${d.getDate()}日(${ts}~${te})`);
-                }
-                d.setDate(d.getDate() + 1);
+        let n = document.getElementById('bS').value; if(!n || !selectedMonths.length) return;
+        let s = ss.find(x=>x.n===n), b = parseInt(document.getElementById('bB').value)||0, tCount=0, tR=0, allD=[];
+        selectedMonths.forEach(mStr => {
+            let d = new Date(mStr+"-01"), mon = d.getMonth(), mDates = [];
+            while(d.getMonth() === mon) {
+                let dStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                if(d.getDay()==s.d) { tCount++; tR += parseInt(s.r); mDates.push(`${d.getDate()}日`); }
+                d.setDate(d.getDate()+1);
             }
-            allD.push(`${mStr.split('-')[1]}月：${mDates.join('、')}`);
+            allD.push(`${mStr.split('-')[1]}月：${mDates.join(',')}`);
         });
-        document.getElementById('bT').value = `🎹 費用明細 - ${s.n}\n------------------------\n月份：${selectedMonths.map(m => m.replace('-', '年') + '月').join('、')}\n上課日期：\n${allD.join('\n')}\n共 ${tCount} 堂\n\n課程費用：$${tR.toLocaleString()}\n教材費用：$${b.toLocaleString()}\n------------------------\n總計金額：$${(tR + b).toLocaleString()}\n\n再麻煩匯款後通知，謝謝！`;
+        document.getElementById('bT').value = `🎹 費用明細 - ${s.n}\n上課：${allD.join('\n')}\n共 ${tCount} 堂，學費 $${tR}\n教材 $${b}\n總計 $${tR+b}`;
     }
+
     function saveDayEx() {
-        let ts = document.getElementById('mTs').value, te = document.getElementById('mTe').value, r = document.getElementById('mR').value;
-        let adjIdx = parseInt(document.getElementById('mAdjIdx').value);
-        if (adjIdx !== -1 && adjs[adjIdx]) { adjs[adjIdx].ts = ts; adjs[adjIdx].te = te; adjs[adjIdx].r = r; }
-        dayEx[curEditDate + "_" + curEditName] = { ts, te, r, deleted: false }; save(); renderCal(); closeModal();
+        dayEx[curEditDate + "_" + curEditName] = { ts:document.getElementById('mTs').value, te:document.getElementById('mTe').value, r:document.getElementById('mR').value };
+        save(); renderCal(); closeModal();
     }
-    function delDayEx() { if (confirm('刪除？')) { dayEx[curEditDate + "_" + curEditName] = { deleted: true }; save(); renderCal(); closeModal(); } }
-    function closeModal() { document.querySelectorAll('.modal').forEach(m => m.style.display = 'none'); }
-    function upOpt() { document.getElementById('bS').innerHTML = ss.map(s => `<option value="${s.n}">${s.n}</option>`).join(''); document.getElementById('oneStudent').innerHTML = ss.map(s => `<option value="${s.n}">${s.n}</option>`).join(''); }
+    function delDayEx() { dayEx[curEditDate+"_"+curEditName]={deleted:true}; save(); renderCal(); closeModal(); }
+    function toggleAdjFields(v) { document.getElementById('extraTimeArea').style.display=v==='extra'?'block':'none'; document.getElementById('adjReasonArea').style.display=v==='off'?'block':'none'; }
+    function closeModal() { document.querySelectorAll('.modal').forEach(m=>m.style.display='none'); }
     function share() { window.location.href = "https://line.me/R/msg/text/?" + encodeURIComponent(document.getElementById('bT').value); }
     showP('h');
 </script>
