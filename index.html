@@ -3,49 +3,153 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>鋼琴教學管理系統 v2</title>
+    <title>鋼琴教室管理</title>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
     <style>
-        :root { --primary: #4a5568; --accent: #48bb78; --nav-bg: #2d3748; --danger: #f56565; }
-        body { font-family: -apple-system, sans-serif; margin: 0; background: #f7fafc; padding-bottom: 60px; color: #333; }
-        
-        nav { background: var(--nav-bg); color: white; display: flex; justify-content: space-around; padding: 15px; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-        nav div { cursor: pointer; font-weight: bold; font-size: 15px; }
-
-        .page { display: none; padding: 15px; max-width: 800px; margin: auto; }
+        :root { --p: #2d3748; --a: #48bb78; }
+        body { font-family: sans-serif; margin: 0; background: #f7fafc; padding-bottom: 60px; }
+        nav { background: var(--p); color: white; display: flex; justify-content: space-around; padding: 15px; position: sticky; top: 0; z-index: 1000; }
+        .page { display: none; padding: 15px; max-width: 600px; margin: auto; }
         .active { display: block; }
-
-        .card { background: white; border-radius: 12px; padding: 18px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-        label { display: block; margin-top: 10px; font-weight: bold; color: #4a5568; font-size: 14px; }
-        input, select, textarea { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-        
-        button { background: var(--accent); color: white; border: none; padding: 14px; border-radius: 8px; width: 100%; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        button:active { opacity: 0.8; transform: scale(0.98); }
-        .edit-btn { background: #4a5568; margin-bottom: 5px; }
-        .del-btn { background: white; color: var(--danger); border: 1px solid var(--danger); margin-top: 5px; padding: 8px; font-size: 14px; }
-        .cancel-btn { background: #cbd5e0; color: #4a5568; margin-top: 5px; }
-
-        #calendar { background: white; padding: 10px; border-radius: 12px; min-height: 500px; }
-        .time-display { color: #718096; font-size: 13px; margin-top: 4px; }
+        .card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        button { background: var(--a); color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; font-size: 16px; cursor: pointer; margin-top: 5px; }
+        input, select, textarea { width: 100%; padding: 10px; margin: 5px 0 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        .del-btn { background: none; color: #f56565; border: 1px solid #f56565; margin-top: 10px; }
+        #calendar { background: white; padding: 10px; border-radius: 12px; height: 500px; }
     </style>
 </head>
 <body>
 
 <nav>
-    <div onclick="showPage('home')">📅 日曆首頁</div>
-    <div onclick="showPage('students')">👥 學生管理</div>
-    <div onclick="showPage('billing')">💰 結算帳單</div>
+    <div onclick="showP('h')">日曆</div>
+    <div onclick="showP('s')">學生</div>
+    <div onclick="showP('b')">帳單</div>
 </nav>
 
-<div id="home" class="page active">
-    <div id="calendar"></div>
+<div id="h" class="page active"><div id="calendar"></div></div>
+
+<div id="s" class="page">
+    <button onclick="openForm()">+ 新增學生</button>
+    <div id="sList"></div>
+    <div id="form" style="display:none;" class="card">
+        <h3>學生資訊</h3>
+        <input type="hidden" id="eIdx">
+        姓名：<input type="text" id="sN">
+        週幾：<select id="sD">
+            <option value="1">一</option><option value="2">二</option><option value="3">三</option>
+            <option value="4">四</option><option value="5">五</option><option value="6">六</option><option value="0">日</option>
+        </select>
+        時間：<input type="time" id="sT">
+        學費：<input type="number" id="sR">
+        <button onclick="saveS()">儲存</button>
+        <button onclick="document.getElementById('form').style.display='none'" style="background:#ccc">取消</button>
+    </div>
 </div>
 
-<div id="students" class="page">
-    <button onclick="openAddForm()" style="margin-bottom: 20px;">+ 新增學生檔案</button>
-    <div id="studentList"></div>
+<div id="b" class="page">
+    <div class="card">
+        學生：<select id="bS" onchange="upB()"></select>
+        月份：<input type="month" id="bM" onchange="upB()">
+        教材：<input type="number" id="bB" value="0" onchange="upB()">
+        停課日期(數字)：<input type="text" id="bO" placeholder="例如: 05, 12" onchange="upB()">
+    </div>
+    <div class="card">
+        <textarea id="bT" rows="8"></textarea>
+        <button onclick="share()">傳送 LINE</button>
+    </div>
+</div>
 
-    <div id="editOverlay" style="display:none;">
-        <div class="card" style="border: 2px solid var(--accent);">
-            <h3 id="formTitle">編輯學生資訊</h3>
-            <input type
+<script>
+    let ss = JSON.parse(localStorage.getItem('p_ss')) || [];
+    let cal;
+
+    function fmtT(t) {
+        if(!t) return "";
+        let [h, m] = t.split(':');
+        return (h >= 12 ? '下午 ' : '上午 ') + (h%12||12) + ':' + m;
+    }
+
+    function showP(id) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        if(id === 'h') renderCal();
+        if(id === 's') renderS();
+        if(id === 'b') upOpt();
+    }
+
+    function renderS() {
+        document.getElementById('sList').innerHTML = ss.map((s, i) => `
+            <div class="card">
+                <b>${s.n}</b> - 週${['日','一','二','三','四','五','六'][s.d]} ${fmtT(s.t)} ($${s.r})
+                <button onclick="openForm(${i})" style="background:#4a5568">修改</button>
+                <button class="del-btn" onclick="delS(${i})">刪除學生</button>
+            </div>
+        `).join('');
+    }
+
+    function openForm(i) {
+        document.getElementById('form').style.display = 'block';
+        if(i != null) {
+            document.getElementById('eIdx').value = i;
+            document.getElementById('sN').value = ss[i].n;
+            document.getElementById('sD').value = ss[i].d;
+            document.getElementById('sT').value = ss[i].t;
+            document.getElementById('sR').value = ss[i].r;
+        } else {
+            document.getElementById('eIdx').value = "";
+            document.getElementById('sN').value = "";
+        }
+    }
+
+    function delS(i) {
+        if(confirm("確定刪除？")) { ss.splice(i, 1); save(); }
+    }
+
+    function saveS() {
+        let d = { n: document.getElementById('sN').value, d: document.getElementById('sD').value, t: document.getElementById('sT').value, r: document.getElementById('sR').value };
+        let i = document.getElementById('eIdx').value;
+        if(i === "") ss.push(d); else ss[i] = d;
+        save(); document.getElementById('form').style.display = 'none';
+    }
+
+    function save() { localStorage.setItem('p_ss', JSON.stringify(ss)); renderS(); }
+
+    function renderCal() {
+        let el = document.getElementById('calendar');
+        if(cal) cal.destroy();
+        let evs = [];
+        ss.forEach(s => {
+            for(let i = -7; i < 60; i++) {
+                let d = new Date(); d.setDate(d.getDate() + i);
+                if(d.getDay() == s.d) evs.push({ title: s.n + ' ' + fmtT(s.t), start: d.toISOString().split('T')[0] + 'T' + s.t });
+            }
+        });
+        cal = new FullCalendar.Calendar(el, { initialView: 'dayGridMonth', events: evs, locale: 'zh-tw' });
+        cal.render();
+    }
+
+    function upOpt() {
+        document.getElementById('bS').innerHTML = ss.map((s,i) => `<option value="${i}">${s.n}</option>`).join('');
+        upB();
+    }
+
+    function upB() {
+        let i = document.getElementById('bS').value; if(!ss[i] || !document.getElementById('bM').value) return;
+        let s = ss[i], mStr = document.getElementById('bM').value, b = parseInt(document.getElementById('bB').value)||0;
+        let offs = document.getElementById('bO').value.split(',').map(x => x.trim());
+        let d = new Date(mStr + "-01"), mon = d.getMonth(), count = 0, dates = [];
+        while(d.getMonth() === mon) {
+            if(d.getDay() == s.d && !offs.includes(d.getDate().toString().padStart(2,'0'))) {
+                count++; dates.push((mon+1)+'/'+d.getDate());
+            }
+            d.setDate(d.getDate() + 1);
+        }
+        document.getElementById('bT').value = `【${s.n} ${mon+1}月帳單】\n時間：週${['日','一','二','三','四','五','六'][s.d]} ${fmtT(s.t)}\n日期：${dates.join(', ')} (共${count}堂)\n學費：$${s.r * count}\n教材：$${b}\n總計：$${(s.r * count) + b}\n感謝您！`;
+    }
+
+    function share() { window.location.href = "https://line.me/R/msg/text/?" + encodeURIComponent(document.getElementById('bT').value); }
+
+    showP('h');
+</script>
+</body>
+</html>
