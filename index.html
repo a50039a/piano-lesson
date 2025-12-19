@@ -6,23 +6,21 @@
     <title>鋼琴教學管理</title>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
     <style>
-        :root { --p: #5a67d8; --s: #48bb78; --d: #f56565; --bg: #f7fafc; --card: #ffffff; }
-        body { font-family: sans-serif; background: var(--bg); margin: 0; padding-bottom: 80px; }
+        :root { --p: #5a67d8; --s: #48bb78; --d: #f56565; --bg: #f8fafc; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); margin: 0; padding-bottom: 80px; }
         nav { background: white; display: flex; justify-content: space-around; padding: 15px 0; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        nav div { font-weight: bold; color: #a0aec0; cursor: pointer; }
+        nav div { font-weight: bold; color: #a0aec0; cursor: pointer; padding: 5px 10px; }
         nav div.active { color: var(--p); border-bottom: 2px solid var(--p); }
         .page { display: none; padding: 15px; max-width: 600px; margin: auto; }
         .active-p { display: block; }
-        .card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .card { background: white; border-radius: 15px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); border: 1px solid #edf2f7; }
         label { display: block; font-size: 13px; font-weight: bold; margin: 10px 0 5px; color: #4a5568; }
-        input, select, textarea { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-        button { background: var(--p); color: white; border: none; padding: 14px; border-radius: 8px; width: 100%; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        .btn-s { background: var(--s); }
-        .btn-d { background: var(--d); }
-        .btn-o { background: white; color: var(--p); border: 1px solid var(--p); }
-        #calendar { background: white; padding: 10px; border-radius: 12px; height: 70vh; }
-        .adj-item { font-size: 13px; border-bottom: 1px solid #eee; padding: 8px 0; }
+        input, select, textarea { width: 100%; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 10px; box-sizing: border-box; font-size: 16px; }
+        button { background: var(--p); color: white; border: none; padding: 14px; border-radius: 10px; width: 100%; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .btn-s { background: var(--s); } .btn-d { background: var(--d); } .btn-o { background: white; color: var(--p); border: 1.5px solid var(--p); }
+        #calendar { background: white; padding: 10px; border-radius: 15px; height: 75vh; }
         .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2000; align-items:center; justify-content:center; }
+        .row { display: flex; gap: 10px; } .row > div { flex: 1; }
     </style>
 </head>
 <body>
@@ -43,44 +41,48 @@
 
 <div id="off" class="page">
     <div class="card">
-        <h3>1. 全體停課 (國定假日/老師請假)</h3>
-        <label>開始日期</label><input type="date" id="allS">
-        <label>結束日期 (同一天請選相同日期)</label><input type="date" id="allE">
-        <button class="btn-d" onclick="addAdj('ALL', 'off', 'allS', 'allE')">設定全體停課</button>
+        <h3>1. 全體停課設定</h3>
+        <div class="row">
+            <div><label>開始</label><input type="date" id="allS"></div>
+            <div><label>結束</label><input type="date" id="allE"></div>
+        </div>
+        <button class="btn-d" onclick="addAdj('ALL', 'off', 'allS', 'allE')">確認全體停課</button>
     </div>
     <div class="card">
-        <h3>2. 個別停課 / 加課</h3>
+        <h3>2. 個別 停課 / 加課</h3>
         <label>選擇學生</label><select id="oneStudent"></select>
-        <label>開始日期</label><input type="date" id="oneS">
-        <label>結束日期</label><input type="date" id="oneE">
+        <div class="row">
+            <div><label>開始</label><input type="date" id="oneS"></div>
+            <div><label>結束</label><input type="date" id="oneE"></div>
+        </div>
         <label>類型</label>
         <select id="oneType">
             <option value="off">🔴 停課</option>
-            <option value="extra">🟢 加課 (不論週幾都上)</option>
+            <option value="extra">🟢 加課</option>
         </select>
         <button onclick="addAdj(document.getElementById('oneStudent').value, document.getElementById('oneType').value, 'oneS', 'oneE')">儲存設定</button>
     </div>
-    <div id="adjLog" class="card"><h3>目前特殊設定</h3><div id="adjList"></div></div>
+    <div class="card"><h3>目前設定清單</h3><div id="adjList"></div></div>
 </div>
 
 <div id="b" class="page">
     <div class="card">
-        <label>學生</label><select id="bS" onchange="upB()"></select>
-        <label>月份</label><input type="month" id="bM" onchange="upB()">
+        <label>選擇學生</label><select id="bS" onchange="upB()"></select>
+        <label>選擇月份</label><input type="month" id="bM" onchange="upB()">
         <label>教材費</label><input type="number" id="bB" value="0" onchange="upB()">
-        <textarea id="bT" rows="8" style="margin-top:15px; background:#f9f9f9;"></textarea>
-        <button class="btn-s" onclick="share()">LINE 分享明細</button>
+        <textarea id="bT" rows="9" style="margin-top:15px; background:#f8fafc; font-family: monospace;"></textarea>
+        <button class="btn-s" onclick="share()">LINE 分享帳單</button>
     </div>
 </div>
 
 <div id="dayModal" class="modal">
     <div class="card" style="width:90%; max-width:350px;">
-        <h3 id="mTitle">單日課程調整</h3>
+        <h3 id="mTitle">單日課程微調</h3>
         <p id="mDateDesc" style="font-size:14px; color:#666;"></p>
-        <label>當天時間 (10分鐘單位)</label><input type="time" id="mT" step="600">
-        <label>當天學費 (不影響平時設定)</label><input type="number" id="mR">
-        <button onclick="saveDayEx()">僅儲存這一天</button>
-        <button class="btn-o" onclick="document.getElementById('dayModal').style.display='none'">取消</button>
+        <label>當天時間</label><input type="time" id="mT" step="600">
+        <label>當天費用</label><input type="number" id="mR">
+        <button onclick="saveDayEx()">僅修改這一天</button>
+        <button class="btn-o" onclick="closeModal()">取消</button>
     </div>
 </div>
 
@@ -89,26 +91,27 @@
         <h3>學生基本設定</h3>
         <input type="hidden" id="eIdx">
         <label>姓名</label><input type="text" id="sN">
-        <label>週幾</label>
+        <label>上課日</label>
         <select id="sD"><option value="1">週一</option><option value="2">週二</option><option value="3">週三</option><option value="4">週四</option><option value="5">週五</option><option value="6">週六</option><option value="0">週日</option></select>
-        <label>固定時間</label><input type="time" id="sT" step="600">
-        <label>固定學費</label><input type="number" id="sR">
-        <button onclick="saveS()">儲存設定</button>
+        <label>時間</label><input type="time" id="sT" step="600">
+        <label>學費</label><input type="number" id="sR">
+        <p style="font-size:11px; color:var(--d);">* 修改將於「今天(含)之後」生效，歷史紀錄不變。</p>
+        <button onclick="saveS()">確認儲存</button>
         <button id="delBtn" class="btn-d" style="display:none;">刪除學生</button>
-        <button class="btn-o" onclick="document.getElementById('sModal').style.display='none'">關閉</button>
+        <button class="btn-o" onclick="closeModal()">關閉</button>
     </div>
 </div>
 
 <script>
     let ss = JSON.parse(localStorage.getItem('p_ss')) || [];
-    let adjs = JSON.parse(localStorage.getItem('p_adjs')) || []; // {target, type, start, end}
-    let dayEx = JSON.parse(localStorage.getItem('p_dayEx')) || {}; // { "2023-10-01_學生名": {t, r} }
+    let adjs = JSON.parse(localStorage.getItem('p_adjs')) || [];
+    let dayEx = JSON.parse(localStorage.getItem('p_dayEx')) || {};
     let cal, curEditDate, curEditName;
 
     function fmtT(t) {
         if(!t) return "";
         let [h, m] = t.split(':');
-        return (h >= 12 ? '下午 ' : '上午 ') + (h%12||12) + ':' + m;
+        return (h >= 12 ? '下午' : '上午') + (h%12||12) + ':' + m;
     }
 
     function showP(id, el) {
@@ -128,15 +131,15 @@
         localStorage.setItem('p_dayEx', JSON.stringify(dayEx));
     }
 
-    // --- 學生管理 ---
     function renderS() {
         document.getElementById('sList').innerHTML = ss.map((s, i) => `
             <div class="card">
                 <b>${s.n}</b> | 週${['日','一','二','三','四','五','六'][s.d]} ${fmtT(s.t)} ($${s.r})
-                <button onclick="openSForm(${i})" class="btn-o">編輯</button>
+                <button onclick="openSForm(${i})" class="btn-o">修改設定</button>
             </div>
         `).join('');
     }
+
     function openSForm(i) {
         document.getElementById('sModal').style.display = 'flex';
         const dBtn = document.getElementById('delBtn');
@@ -147,68 +150,89 @@
             document.getElementById('sT').value = ss[i].t;
             document.getElementById('sR').value = ss[i].r;
             dBtn.style.display = 'block';
-            dBtn.onclick = () => { if(confirm("確定刪除？")) { ss.splice(i,1); save(); renderS(); document.getElementById('sModal').style.display='none'; } };
+            dBtn.onclick = () => { if(confirm("刪除後歷史帳單仍會保留，確定？")) { ss.splice(i,1); save(); renderS(); closeModal(); } };
         } else {
-            document.getElementById('eIdx').value = "";
-            document.getElementById('sN').value = "";
-            document.getElementById('sT').value = "14:00";
-            dBtn.style.display = 'none';
+            document.getElementById('eIdx').value = ""; document.getElementById('sN').value = ""; document.getElementById('sT').value = "14:00"; dBtn.style.display = 'none';
         }
     }
+
     function saveS() {
-        let d = { n: document.getElementById('sN').value, d: document.getElementById('sD').value, t: document.getElementById('sT').value, r: document.getElementById('sR').value };
+        const today = new Date().toISOString().split('T')[0];
         let i = document.getElementById('eIdx').value;
-        if(i==="") ss.push(d); else ss[i] = d;
-        save(); renderS(); document.getElementById('sModal').style.display='none';
+        let newData = { n: document.getElementById('sN').value, d: document.getElementById('sD').value, t: document.getElementById('sT').value, r: document.getElementById('sR').value, effectiveDate: today };
+        
+        if(i==="") {
+            ss.push(newData);
+        } else {
+            // 關鍵：將舊設定存入歷史紀錄 (History)
+            if(!ss[i].history) ss[i].history = [];
+            // 只有當設定真的有變時才存歷史
+            if(ss[i].t !== newData.t || ss[i].r !== newData.r || ss[i].d !== newData.d) {
+                ss[i].history.push({ d: ss[i].d, t: ss[i].t, r: ss[i].r, until: today });
+            }
+            ss[i].n = newData.n; ss[i].d = newData.d; ss[i].t = newData.t; ss[i].r = newData.r;
+        }
+        save(); renderS(); closeModal();
     }
 
-    // --- 停加課邏輯 ---
+    function closeModal() { document.querySelectorAll('.modal').forEach(m=>m.style.display='none'); }
+
     function addAdj(target, type, sId, eId) {
         let s = document.getElementById(sId).value, e = document.getElementById(eId).value;
-        if(!s || !e) return alert("請選擇日期範圍");
+        if(!s || !e) return alert("請選擇日期");
         adjs.push({ target, type, start: s, end: e });
         save(); renderAdj();
+        // 清除所選資訊
+        document.getElementById(sId).value = ""; document.getElementById(eId).value = "";
     }
+
     function renderAdj() {
         document.getElementById('oneStudent').innerHTML = ss.map(s => `<option value="${s.n}">${s.n}</option>`).join('');
         document.getElementById('adjList').innerHTML = adjs.map((a, i) => `
-            <div class="adj-item">
+            <div style="font-size:13px; padding:10px 0; border-bottom:1px solid #eee;">
                 <b>${a.target === 'ALL' ? '📢 全體' : '👤 ' + a.target}</b>: ${a.start} ~ ${a.end} [${a.type==='off'?'停課':'加課'}]
-                <button onclick="adjs.splice(${i},1);save();renderAdj();" style="width:50px; padding:2px; font-size:12px; background:var(--d); float:right;">刪除</button>
-                <div style="clear:both;"></div>
+                <button onclick="adjs.splice(${i},1);save();renderAdj();" style="width:50px; padding:2px; font-size:11px; background:var(--d); float:right; margin:0;">刪除</button>
             </div>
         `).join('');
     }
 
-    // --- 日曆功能 ---
+    function getStudentInfoForDate(student, dateStr) {
+        // 如果有歷史紀錄，且該日期在歷史範圍內
+        if(student.history) {
+            let hist = student.history.find(h => dateStr < h.until);
+            if(hist) return hist;
+        }
+        return student;
+    }
+
     function renderCal() {
         let el = document.getElementById('calendar');
         if(cal) cal.destroy();
         let evs = [];
-        let startBound = new Date(); startBound.setDate(startBound.getDate() - 14);
-
+        let now = new Date();
+        
         ss.forEach(s => {
-            for(let i = 0; i < 60; i++) {
-                let d = new Date(startBound); d.setDate(d.getDate() + i);
+            for(let i = -30; i < 60; i++) {
+                let d = new Date(); d.setDate(now.getDate() + i);
                 let dStr = d.toISOString().split('T')[0];
+                let info = getStudentInfoForDate(s, dStr);
                 
-                // 檢查各種優先權
                 let isAllOff = adjs.some(a => a.target === 'ALL' && a.type === 'off' && dStr >= a.start && dStr <= a.end);
                 let isOneOff = adjs.some(a => a.target === s.n && a.type === 'off' && dStr >= a.start && dStr <= a.end);
                 let isOneExtra = adjs.some(a => a.target === s.n && a.type === 'extra' && dStr >= a.start && dStr <= a.end);
                 let ex = dayEx[dStr + "_" + s.n];
 
-                if ((d.getDay() == s.d && !isAllOff && !isOneOff) || isOneExtra) {
-                    let time = ex ? ex.t : s.t;
-                    let rate = ex ? ex.r : s.r;
+                if ((d.getDay() == info.d && !isAllOff && !isOneOff) || isOneExtra) {
+                    let time = ex ? ex.t : info.t;
+                    let rate = ex ? ex.r : info.r;
                     evs.push({
-                        title: `${s.n} (${fmtT(time)}) $${rate}`,
+                        title: `${s.n} ${fmtT(time)}`, // 學生名稱在前
                         start: dStr + 'T' + time,
                         color: isOneExtra ? '#c6f6d5' : '#ebf8ff',
                         textColor: isOneExtra ? '#22543d' : '#2b6cb0',
                         extendedProps: { name: s.n, date: dStr, rate: rate, time: time }
                     });
-                } else if ((d.getDay() == s.d && (isAllOff || isOneOff)) && !isOneExtra) {
+                } else if (d.getDay() == info.d && (isAllOff || isOneOff)) {
                     evs.push({ title: `❌ ${s.n} 停課`, start: dStr, color: '#fed7d7', textColor: '#c53030' });
                 }
             }
@@ -218,12 +242,13 @@
             initialView: 'dayGridMonth',
             events: evs,
             locale: 'zh-tw',
+            headerToolbar: { left: 'prev,next', center: 'title', right: 'today' },
             eventClick: function(info) {
                 if(info.event.title.includes('停課')) return;
                 let p = info.event.extendedProps;
                 curEditDate = p.date; curEditName = p.name;
                 document.getElementById('mTitle').innerText = p.name;
-                document.getElementById('mDateDesc').innerText = p.date + " 單日微調";
+                document.getElementById('mDateDesc').innerText = p.date;
                 document.getElementById('mT').value = p.time;
                 document.getElementById('mR').value = p.rate;
                 document.getElementById('dayModal').style.display = 'flex';
@@ -234,36 +259,38 @@
 
     function saveDayEx() {
         dayEx[curEditDate + "_" + curEditName] = { t: document.getElementById('mT').value, r: document.getElementById('mR').value };
-        save(); renderCal(); document.getElementById('dayModal').style.display='none';
+        save(); renderCal(); closeModal();
     }
 
-    // --- 帳單 ---
     function upOpt() {
         document.getElementById('bS').innerHTML = ss.map((s,i) => `<option value="${i}">${s.n}</option>`).join('');
         document.getElementById('oneStudent').innerHTML = ss.map(s => `<option value="${s.n}">${s.n}</option>`).join('');
     }
+
     function upB() {
         let i = document.getElementById('bS').value; if(!ss[i] || !document.getElementById('bM').value) return;
         let s = ss[i], mStr = document.getElementById('bM').value, b = parseInt(document.getElementById('bB').value)||0;
-        let d = new Date(mStr + "-01"), mon = d.getMonth(), count = 0, totalR = 0, dates = [];
+        let d = new Date(mStr + "-01"), year = d.getFullYear(), mon = d.getMonth(), count = 0, totalR = 0, dates = [];
         
         while(d.getMonth() === mon) {
             let dStr = d.toISOString().split('T')[0];
+            let info = getStudentInfoForDate(s, dStr);
             let isAllOff = adjs.some(a => a.target === 'ALL' && a.type === 'off' && dStr >= a.start && dStr <= a.end);
             let isOneOff = adjs.some(a => a.target === s.n && a.type === 'off' && dStr >= a.start && dStr <= a.end);
             let isOneExtra = adjs.some(a => a.target === s.n && a.type === 'extra' && dStr >= a.start && dStr <= a.end);
             let ex = dayEx[dStr + "_" + s.n];
 
-            if ((d.getDay() == s.d && !isAllOff && !isOneOff) || isOneExtra) {
+            if ((d.getDay() == info.d && !isAllOff && !isOneOff) || isOneExtra) {
                 count++;
-                let currentRate = parseInt(ex ? ex.r : s.r);
+                let currentRate = parseInt(ex ? ex.r : info.r);
                 totalR += currentRate;
-                dates.push(`${mon+1}/${d.getDate()}`);
+                dates.push(`${d.getDate()}`);
             }
             d.setDate(d.getDate() + 1);
         }
-        document.getElementById('bT').value = `🎹 ${s.n} ${mon+1}月學費明細：\n上課日：${dates.join(', ')} (共 ${count} 堂)\n課程費用：$${totalR.toLocaleString()}\n教材費用：$${b.toLocaleString()}\n----------------\n總計金額：$${(totalR + b).toLocaleString()}\n謝謝老師！`;
+        document.getElementById('bT').value = `🎹 ${year}年${mon+1}月學費明細 - ${s.n}\n------------------------\n上課日期：${dates.join(', ')} 號 (共 ${count} 堂)\n課程學費：$${totalR.toLocaleString()}\n教材費用：$${b.toLocaleString()}\n------------------------\n總計金額：$${(totalR + b).toLocaleString()}\n\n再麻煩匯款後通知，謝謝！`;
     }
+
     function share() { window.location.href = "https://line.me/R/msg/text/?" + encodeURIComponent(document.getElementById('bT').value); }
 
     showP('h');
