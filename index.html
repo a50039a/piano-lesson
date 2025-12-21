@@ -20,7 +20,11 @@
         label { display: block; font-size: 13px; font-weight: bold; margin: 10px 0 5px; color: #4a5568; }
         input, select, textarea { width: 100%; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 10px; box-sizing: border-box; font-size: 16px; }
         input:disabled, select:disabled { background-color: #f1f5f9; color: #94a3b8; cursor: not-allowed; }
+        
+        /* 修改點 1: 強制時間輸入框在 flex 容器內平分寬度，手機版不換行 */
         .time-row { display: flex; gap: 10px; align-items: center; }
+        .time-row input { flex: 1; width: auto; min-width: 0; }
+
         .time-preview { font-size: 13px; color: var(--p); font-weight: bold; margin-bottom: 5px; }
         button { background: var(--p); color: white; border: none; padding: 14px; border-radius: 10px; width: 100%; font-size: 16px; font-weight: bold; cursor: pointer; }
         button:disabled { background: #cbd5e0; cursor: not-allowed; }
@@ -207,10 +211,8 @@
     let tempNormalValues = { ts: "", te: "", r: "" };
     let calFilterNames = [];
 
-    // 需求3: 排序功能 (週一 -> 週日, 時間小 -> 大)
     function sortSS() {
         ss.sort((a, b) => {
-            // 將 0 (週日) 轉換為 7，讓它排在週六(6)後面
             let da = a.d === 0 ? 7 : a.d;
             let db = b.d === 0 ? 7 : b.d;
             if (da !== db) return da - db;
@@ -218,7 +220,6 @@
         });
     }
 
-    // 初始化載入時執行排序
     sortSS();
 
     function getDStr(date) {
@@ -277,9 +278,11 @@
     let fpAll = flatpickr("#allRangeBtn", { ...fpConfig, onChange: (d, str) => document.getElementById('allRangeVal').value = str });
     let fpOne = flatpickr("#oneRangeBtn", { ...fpConfig, mode: "single", onChange: (d, str) => document.getElementById('oneRangeVal').value = str });
     let fpEdit = flatpickr("#adjEditRangeBtn", { ...fpConfig, dateFormat: "Y-m-d", onChange: (d, str) => document.getElementById('adjEditRangeVal').value = str });
-      
+       
+    // 修改點 2: 加入 disableMobile: true 以強制手機版遵守 minDate/maxDate 限制
     let fpDateEdit = flatpickr("#mDateBtn", {
         locale: "zh_tw", dateFormat: "Y-m-d",
+        disableMobile: true, 
         onChange: (d, str) => {
             document.getElementById('mDateVal').value = str;
             updateDayModalUI(true);
@@ -399,7 +402,6 @@
         }
         
         revalidateAndCleanExtras(todayStr);
-        // 需求3: 儲存前確保排序
         sortSS();
         save(); renderS(); closeModal();
     }
@@ -604,8 +606,11 @@
         
         fpEdit.set("mode", a.type === 'extra' ? "single" : "range");
         
-        document.getElementById('adjEditRangeVal').value = a.start + (a.start !== a.end ? " ~ " + a.end : "");
-        document.getElementById('adjEditRangeBtn').innerText = a.start + (a.start !== a.end ? " ~ " + a.end : "");
+        // 修正：如果 start 與 end 相同，顯示單一日期
+        let rangeDisplay = (a.start === a.end) ? a.start : (a.start + " ~ " + a.end);
+        document.getElementById('adjEditRangeVal').value = rangeDisplay;
+        document.getElementById('adjEditRangeBtn').innerText = rangeDisplay;
+
         fpEdit.set("minDate", null);
         fpEdit.set("maxDate", maxD);
         if (a.type === 'extra') {
@@ -663,19 +668,25 @@
         }
         let filterName = filterEl.value;
         let sorted = [...adjs].sort((a, b) => b.start.localeCompare(a.start));
+        
+        // 修改點 3: 若 start 與 end 相同，只顯示單一日期
         let allHtml = sorted.filter(a => a.target === 'ALL').map(a => {
             let realIdx = adjs.indexOf(a);
-            return `<div class="adj-item"><div><b>📢 全體停課</b> [${a.reason||''}]<br>${a.start} ~ ${a.end}</div>
+            let dateStr = (a.start === a.end) ? a.start : `${a.start} ~ ${a.end}`;
+            return `<div class="adj-item"><div><b>📢 全體停課</b> [${a.reason||''}]<br>${dateStr}</div>
             <div style="display:flex; gap:5px;"><button onclick="openAdjEdit(${realIdx})" style="width:60px;background:var(--p);font-size:12px;margin:0;padding:6px;">編輯</button>
             <button onclick="delAdjItem(${realIdx})" style="width:60px;background:var(--d);font-size:12px;margin:0;padding:6px;">刪除</button></div></div>`;
         }).join('');
+
         let oneHtml = sorted.filter(a => a.target === filterName).map(a => {
             let realIdx = adjs.indexOf(a);
             let info = `加課 ${a.ts||''}~${a.te||''} $${a.r||''}`;
-            return `<div class="adj-item"><div><b>👤 ${a.target}</b> [${info}]<br>${a.start} ~ ${a.end}</div>
+            let dateStr = (a.start === a.end) ? a.start : `${a.start} ~ ${a.end}`;
+            return `<div class="adj-item"><div><b>👤 ${a.target}</b> [${info}]<br>${dateStr}</div>
             <div style="display:flex; gap:5px;"><button onclick="openAdjEdit(${realIdx})" style="width:60px;background:var(--p);font-size:12px;margin:0;padding:6px;">編輯</button>
             <button onclick="delAdjItem(${realIdx})" style="width:60px;background:var(--d);font-size:12px;margin:0;padding:6px;">刪除</button></div></div>`;
         }).join('');
+        
         document.getElementById('allAdjList').innerHTML = allHtml || '<p style="color:#999;font-size:12px;">尚無設定</p>';
         document.getElementById('oneAdjList').innerHTML = oneHtml || '<p style="color:#999;font-size:12px;">尚無設定</p>';
     }
@@ -714,7 +725,6 @@
 
                 let extras = adjs.filter(a => a.target === s.n && a.type === 'extra' && dStr >= a.start && dStr <= a.end);
                 extras.forEach(extra => {
-                    // 需求1: 個別加課顯示為 淺綠底 (#c6f6d5)、深綠字、加號
                     evs.push({ title:`➕ ${s.n} ${fmtT(extra.ts)}`, start: dStr+'T'+extra.ts, backgroundColor: '#c6f6d5', borderColor: '#c6f6d5', textColor:'#22543d', extendedProps:{name:s.n, date:dStr, rate:extra.r, ts:extra.ts, te:extra.te, adjIdx: adjs.indexOf(extra), isExtra: true} });
                 });
 
@@ -737,7 +747,7 @@
                              let h = s.history.find(hist => dStr < hist.until);
                              if (h && curWeekday === h.d) finalR = h.r; 
                          }
-                     }
+                      }
 
                     if (finalStatus === 'global_off') {
                         finalReason = isAllOff ? isAllOff.reason : '';
@@ -746,7 +756,6 @@
                         finalReason = (ex && ex.reason) ? ex.reason : '';
                         evs.push({ title:`❌ ${finalReason||'停課'} (${s.n})`, start: dStr, color:'#fed7d7', textColor:'#c53030', extendedProps:{name:s.n, date:dStr, isFixed: true} });
                     } else {
-                        // 需求1: 正常上課顯示為 淺藍色底 (#bee3f8)、深藍色字、音符符號
                         evs.push({ title:`🎵 ${s.n} ${fmtT(finalTs)}`, start: dStr+'T'+finalTs, backgroundColor: '#bee3f8', borderColor: '#bee3f8', textColor:'#2b6cb0', extendedProps:{name:s.n, date:dStr, rate:finalR, ts:finalTs, te:finalTe, isFixed: true} });
                     }
                 }
@@ -910,7 +919,7 @@
     function clearAllData() { if(confirm("⚠️ 確定清空所有資料嗎？")) { localStorage.clear(); location.reload(); } }
 
     function initBilling() { selectedMonths=[]; document.getElementById('bB').value=0; document.getElementById('bT').value=""; renderMonthPicker(); let nowStr = getDStr(new Date()).substring(0, 7); toggleMonth(nowStr); }
-      
+       
     function renderMonthPicker() {
         let n = document.getElementById('bS').value; if(!n) return;
         let s = ss.find(x => x.n === n); if(!s) return;
@@ -943,9 +952,9 @@
         document.getElementById('monthPicker').innerHTML = Array.from(avMonths).sort().map(m => `<div class="month-chip ${selectedMonths.includes(m)?'selected':''}" onclick="toggleMonth('${m}')">${m}</div>`).join('');
         upB();
     }
-      
+       
     function toggleMonth(m) { if(selectedMonths.includes(m)) selectedMonths = selectedMonths.filter(x => x !== m); else selectedMonths.push(m); renderMonthPicker(); }
-      
+       
     function upB() {
         let n = document.getElementById('bS').value; if(!n || selectedMonths.length === 0) { document.getElementById('bT').value = ""; return; }
         let s = ss.find(x => x.n === n), b = parseInt(document.getElementById('bB').value)||0, tCount=0, tR=0, sCount=0;
