@@ -31,8 +31,23 @@
         #calendar { background: white; padding: 10px; border-radius: 15px; height: 70vh; }
         .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2000; align-items:center; justify-content:center; }
         
-        /* 修改點 1: 加入 white-space: nowrap 確保日期選擇按鈕文字在手機上不換行 */
-        .range-btn { background: #edf2f7; color: #2d3748; text-align: center; border: 1.5px solid #e2e8f0; min-height: 45px; display: flex; align-items: center; justify-content: center; width: 100%; border-radius: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        /* 修改點 1: 改用 display: block 配合 overflow，更強力解決手機版文字換行問題 */
+        .range-btn { 
+            background: #edf2f7; 
+            color: #2d3748; 
+            text-align: center; 
+            border: 1.5px solid #e2e8f0; 
+            min-height: 45px; 
+            line-height: 45px; /* 垂直置中 */
+            width: 100%; 
+            border-radius: 10px; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            display: block; /* 避免 flex 導致的壓縮問題 */
+            padding: 0 10px; /* 左右留白 */
+            box-sizing: border-box;
+        }
         
         .range-btn:disabled { opacity: 0.6; cursor: not-allowed; }
         .adj-item { font-size: 14px; padding: 12px 0; border-bottom: 1px solid #edf2f7; display: flex; justify-content: space-between; align-items: center; }
@@ -151,11 +166,8 @@
         <h3 id="mTitle"></h3>
         <p id="mDateDesc" style="color: #5a67d8; font-weight: bold;"></p>
         <input type="hidden" id="mOrigDate"> <label>課堂狀態</label>
-        <select id="mStatus" onchange="updateDayModalUI(false)">
-            <option value="normal">🔵 正常上課</option>
-            <option value="off">🔴 停課</option>
-            <option value="global_off" disabled style="display:none;">⛔ 全體停課 (不可變更)</option>
-        </select>
+        
+        <select id="mStatus" onchange="updateDayModalUI(false)"></select>
 
         <div id="mOffReasonArea">
             <label>停課原因</label>
@@ -212,9 +224,6 @@
     let selectedMonths = [], cal, curEditName;
     let tempNormalValues = { ts: "", te: "", r: "" };
     let calFilterNames = [];
-
-    // 提示標題常數
-    const ALERT_TITLE = "【音樂教學課程管理】\n\n";
 
     function sortSS() {
         ss.sort((a, b) => {
@@ -323,7 +332,6 @@
             upOpt(); 
             renderAdj(true); 
             resetOneFp(); 
-            // 修改點 2: 清除全體停課的選擇狀態
             document.getElementById('allRangeVal').value = "";
             document.getElementById('allRangeBtn').innerText = "📅 點擊選擇範圍...";
             fpAll.clear();
@@ -345,7 +353,8 @@
     }
 
     function delStudent(i) {
-        if(confirm(ALERT_TITLE + `確定刪除「${ss[i].n}」？`)) { // 修改點 4
+        // 修改點 2: 移除手動添加的標題
+        if(confirm(`確定刪除「${ss[i].n}」？`)) { 
             let name = ss[i].n;
             ss.splice(i,1);
             adjs = adjs.filter(a => a.target !== name);
@@ -378,21 +387,24 @@
         let ts = document.getElementById('sTs').value;
         let te = document.getElementById('sTe').value;
 
-        if (!name || !rate) return alert(ALERT_TITLE + "請填寫姓名與學費！"); // 修改點 4
+        // 修改點 2: 移除手動添加的標題
+        if (!name || !rate) return alert("請填寫姓名與學費！"); 
         let i = document.getElementById('eIdx').value;
         
         let editIndex = (i === "") ? -1 : parseInt(i);
         
+        // 修改點 2: 移除手動添加的標題
         let duplicate = ss.find((s, idx) => s.n === name && idx !== editIndex);
-        if (duplicate) return alert(ALERT_TITLE + "此學生姓名已存在，請使用不同名稱！"); // 修改點 4
+        if (duplicate) return alert("此學生姓名已存在，請使用不同名稱！"); 
 
         let now = new Date();
         let todayStr = getDStr(now);
         let firstDayOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         let firstDayStr = getDStr(firstDayOfCurrentMonth);
 
+        // 修改點 2: 移除手動添加的標題
         let timeConflict = checkTimeConflict(name, wd, ts, te, i);
-        if (timeConflict) return alert(ALERT_TITLE + `🚫 時段衝突：\n與學生 ${timeConflict.n} 的時段 (${fmtT(timeConflict.ts)}~${fmtT(timeConflict.te)}) 重疊！`); // 修改點 4
+        if (timeConflict) return alert(`🚫 時段衝突：\n與學生 ${timeConflict.n} 的時段 (${fmtT(timeConflict.ts)}~${fmtT(timeConflict.te)}) 重疊！`); 
 
         if(i==="") {
             ss.push({ n: name, d: wd, ts: ts, te: te, r: rate, history: [], createdDate: firstDayStr });
@@ -560,26 +572,28 @@
         }
 
         if (removedCount > 0) {
-            alert(ALERT_TITLE + `⚠️ 課程異動通知：\n由於固定課程恢復正常上課或時間變更，系統已自動移除 ${removedCount} 筆衝突的個別加課：\n\n${removedDetails.join('\n')}`); // 修改點 4
+            // 修改點 2: 移除手動添加的標題
+            alert(`⚠️ 課程異動通知：\n由於固定課程恢復正常上課或時間變更，系統已自動移除 ${removedCount} 筆衝突的個別加課：\n\n${removedDetails.join('\n')}`); 
             save(); 
             renderCal(); 
         }
     }
 
     function addAdj(target, type, valId, btnId) {
-        let val = document.getElementById(valId).value; if(!val) return alert(ALERT_TITLE + "請選擇日期"); // 修改點 4
+        // 修改點 2: 移除手動添加的標題 (多處)
+        let val = document.getElementById(valId).value; if(!val) return alert("請選擇日期"); 
         let parts = val.replace(/ (至|到) /g, "~").split("~");
         let start = parts[0].trim(), end = (parts[1]||parts[0]).trim();
         let ts = (type==='extra') ? document.getElementById('exTs').value : null;
         let te = (type==='extra') ? document.getElementById('exTe').value : null;
         let r = (type==='extra') ? document.getElementById('exRate').value : null;
         let reason = (target === 'ALL') ? document.getElementById('allReason').value : "";
-        if (target === 'ALL' && !reason.trim()) return alert(ALERT_TITLE + "請填寫原因！"); // 修改點 4
+        if (target === 'ALL' && !reason.trim()) return alert("請填寫原因！"); 
         
-        if (type === 'extra' && (r === "" || r === null)) return alert(ALERT_TITLE + "請填寫加課費用！"); // 修改點 4
+        if (type === 'extra' && (r === "" || r === null)) return alert("請填寫加課費用！"); 
 
         let conflict = checkAdjConflict(target, type, start, end, ts, te);
-        if (conflict) return alert(ALERT_TITLE + `🚫 無法新增：${conflict.msg}`); // 修改點 4
+        if (conflict) return alert(`🚫 無法新增：${conflict.msg}`); 
         
         adjs.push({ target, type, start, end, ts, te, r, reason, createdAt: Date.now() });
         
@@ -587,7 +601,7 @@
 
         save(); renderAdj(); 
         
-        alert(ALERT_TITLE + (target === 'ALL' ? "已成功設定全體停課！" : "已成功新增加課！")); // 修改點 4
+        alert(target === 'ALL' ? "已成功設定全體停課！" : "已成功新增加課！"); 
 
         document.getElementById(btnId).innerText="📅 點擊選擇日期..."; 
         document.getElementById('allReason').value = ""; 
@@ -650,10 +664,11 @@
         let r = old.type==='extra'?document.getElementById('adjEditRate').value:null;
         let reason = old.type!=='extra'?document.getElementById('adjEditReason').value:null;
         
-        if (old.type === 'extra' && (r === "" || r === null)) return alert(ALERT_TITLE + "請填寫費用！"); // 修改點 4
+        // 修改點 2: 移除手動添加的標題
+        if (old.type === 'extra' && (r === "" || r === null)) return alert("請填寫費用！"); 
 
         let conflict = checkAdjConflict(old.target, old.type, start, end, ts, te, idx);
-        if (conflict) return alert(ALERT_TITLE + `🚫 無法修改：${conflict.msg}`); // 修改點 4
+        if (conflict) return alert(`🚫 無法修改：${conflict.msg}`); 
         adjs[idx] = { ...old, start, end, ts, te, r, reason };
         
         revalidateAndCleanExtras();
@@ -664,7 +679,8 @@
     function delAdjFromModal() { let idx = parseInt(document.getElementById('adjEditIdx').value); delAdjItem(idx); closeModal(); }
 
     function delAdjItem(idx) {
-        if (!confirm(ALERT_TITLE + '確定刪除此設定？')) return; // 修改點 4
+        // 修改點 2: 移除手動添加的標題
+        if (!confirm('確定刪除此設定？')) return; 
         adjs.splice(idx, 1);
         revalidateAndCleanExtras();
         save(); renderAdj(); renderCal();
@@ -735,7 +751,6 @@
 
                 let extras = adjs.filter(a => a.target === s.n && a.type === 'extra' && dStr >= a.start && dStr <= a.end);
                 extras.forEach(extra => {
-                    // 修改點 3: 符號換成 ❇️
                     evs.push({ title:`❇️ ${s.n} ${fmtT(extra.ts)}`, start: dStr+'T'+extra.ts, backgroundColor: '#c6f6d5', borderColor: '#c6f6d5', textColor:'#22543d', extendedProps:{name:s.n, date:dStr, rate:extra.r, ts:extra.ts, te:extra.te, adjIdx: adjs.indexOf(extra), isExtra: true} });
                 });
 
@@ -760,12 +775,13 @@
                          }
                       }
 
+                    // 修改點 3: 顯示格式調整為 {學生姓名} ({原因})
                     if (finalStatus === 'global_off') {
                         finalReason = isAllOff ? isAllOff.reason : '';
-                        evs.push({ title:`🚫 ${finalReason||'全體停課'} (${s.n})`, start: dStr, color:'#fbb6ce', textColor:'#702459', extendedProps:{name:s.n, date:dStr, isFixed: true} });
+                        evs.push({ title:`🚫 ${s.n} (${finalReason||'全體停課'})`, start: dStr, color:'#fbb6ce', textColor:'#702459', extendedProps:{name:s.n, date:dStr, isFixed: true} });
                     } else if (finalStatus === 'off') {
                         finalReason = (ex && ex.reason) ? ex.reason : '';
-                        evs.push({ title:`❌ ${finalReason||'停課'} (${s.n})`, start: dStr, color:'#fed7d7', textColor:'#c53030', extendedProps:{name:s.n, date:dStr, isFixed: true} });
+                        evs.push({ title:`❌ ${s.n} (${finalReason||'停課'})`, start: dStr, color:'#fed7d7', textColor:'#c53030', extendedProps:{name:s.n, date:dStr, isFixed: true} });
                     } else {
                         evs.push({ title:`🎵 ${s.n} ${fmtT(finalTs)}`, start: dStr+'T'+finalTs, backgroundColor: '#bee3f8', borderColor: '#bee3f8', textColor:'#2b6cb0', extendedProps:{name:s.n, date:dStr, rate:finalR, ts:finalTs, te:finalTe, isFixed: true} });
                     }
@@ -777,7 +793,6 @@
             initialView:'dayGridMonth', locale:'zh-tw', events:evs, headerToolbar:{left:'prev,next', center:'title', right:'today'},
             eventContent:(arg)=>({ 
                 domNodes:[
-                    // 修改點 3: 確保背景色能套用到自定義的 div 上
                     Object.assign(document.createElement('div'), {
                         innerText:arg.event.title, 
                         style:`font-size:11px; padding:2px; background-color: ${arg.event.backgroundColor || arg.event.borderColor}; color: ${arg.event.textColor}; border-radius: 3px;`
@@ -806,7 +821,12 @@
                     let currentTs = (ex.ts) ? ex.ts : baseTs;
                     let currentTe = (ex.te) ? ex.te : baseTe;
                     let currentR = (ex.r) ? ex.r : baseR;
+                    
+                    // 修改點 4: 如果原本是正常上課(沒有ex記錄或ex.status=normal)，點進來時停課原因先清空
                     let currentReason = ex.reason || "";
+                    if (!ex.status || ex.status === 'normal') {
+                        currentReason = "";
+                    }
                     
                     document.getElementById('mTitle').innerText=p.name; 
                     document.getElementById('mDateDesc').innerText=p.date;
@@ -826,11 +846,19 @@
                     document.getElementById('mDateVal').value = p.date;
                     document.getElementById('mDateBtn').innerText = p.date;
 
-                    let savedStatus = ex.status; 
-                    if (savedStatus) {
-                         document.getElementById('mStatus').value = savedStatus;
+                    // 修改點 5: 動態生成 select 選項，避免 iPhone 顯示 disabled 的全體停課選項
+                    let statusSelect = document.getElementById('mStatus');
+                    let savedStatus = ex.status || 'normal'; 
+                    let isGlobalOff = adjs.find(a => a.target === 'ALL' && p.date >= a.start && p.date <= a.end);
+
+                    if (isGlobalOff) {
+                         // 全體停課狀態，只有一個選項
+                         statusSelect.innerHTML = '<option value="global_off">⛔ 全體停課</option>';
+                         statusSelect.value = 'global_off';
                     } else {
-                         document.getElementById('mStatus').value = 'normal'; 
+                         // 正常或個別停課，不顯示全體停課選項
+                         statusSelect.innerHTML = '<option value="normal">🔵 正常上課</option><option value="off">🔴 停課</option>';
+                         statusSelect.value = (savedStatus === 'global_off') ? 'normal' : savedStatus;
                     }
 
                     updateDayModalUI(false); 
@@ -847,7 +875,6 @@
         let currentDateStr = document.getElementById('mDateVal').value;
         let isGlobalOff = adjs.find(a => a.target === 'ALL' && currentDateStr >= a.start && currentDateStr <= a.end);
         let statusSelect = document.getElementById('mStatus');
-        let globalOption = statusSelect.querySelector('option[value="global_off"]');
         let reasonArea = document.getElementById('mOffReasonArea');
         let reasonInput = document.getElementById('mOffReason');
         
@@ -856,8 +883,11 @@
         let rInput = document.getElementById('mR');
 
         if (isGlobalOff) {
-            globalOption.style.display = 'block';
-            statusSelect.value = 'global_off';
+            // 如果切換日期後變成全體停課
+            if (statusSelect.value !== 'global_off') {
+                statusSelect.innerHTML = '<option value="global_off">⛔ 全體停課</option>';
+                statusSelect.value = 'global_off';
+            }
             statusSelect.disabled = true; 
                         
             reasonArea.style.display = 'block';
@@ -869,13 +899,13 @@
             rInput.disabled = false;
 
         } else {
-            globalOption.style.display = 'none';
-            statusSelect.disabled = false; 
-
-            if (statusSelect.value === 'global_off') {
-                statusSelect.value = 'normal';
-                reasonInput.value = ""; 
+            // 如果原本是全體停課，現在切換日期變成非全體停課
+            if (statusSelect.value === 'global_off' || statusSelect.options.length === 1) {
+                 statusSelect.innerHTML = '<option value="normal">🔵 正常上課</option><option value="off">🔴 停課</option>';
+                 statusSelect.value = 'normal';
+                 reasonInput.value = ""; 
             }
+            statusSelect.disabled = false; 
 
             let currentStatus = statusSelect.value;
                         
@@ -886,10 +916,11 @@
                 if (tsInput.value === "") tsInput.value = tempNormalValues.ts;
                 if (teInput.value === "") teInput.value = tempNormalValues.te;
                 if (rInput.value === "") rInput.value = tempNormalValues.r;
-                                
-                tsInput.disabled = true;
-                teInput.disabled = true;
-                rInput.disabled = true;
+                
+                // 修改點 6: 停課時，允許編輯時間與學費 (取消 disabled)
+                tsInput.disabled = false;
+                teInput.disabled = false;
+                rInput.disabled = false;
 
             } else { 
                 reasonArea.style.display = 'none';
@@ -912,7 +943,8 @@
         let newDateStr = document.getElementById('mDateVal').value;
         let origDateStr = document.getElementById('mOrigDate').value;
                 
-        if (status === 'off' && !reason.trim()) return alert(ALERT_TITLE + "請輸入停課原因！"); // 修改點 4
+        // 修改點 2: 移除手動添加的標題
+        if (status === 'off' && !reason.trim()) return alert("請輸入停課原因！"); 
 
         if (newDateStr && newDateStr !== origDateStr) {
             dayEx[origDateStr + "_" + curEditName] = { deleted: true };
@@ -934,8 +966,10 @@
     function closeModal() { document.querySelectorAll('.modal').forEach(m=>m.style.display='none'); }
     function share() { window.location.href = "https://line.me/R/msg/text/?" + encodeURIComponent(document.getElementById('bT').value); }
     function exportData() { const blob = new Blob([JSON.stringify({ss, adjs, dayEx})], {type:'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `piano_backup.json`; a.click(); }
-    function importData() { const input = document.getElementById('importFile'); if(!input.files[0]) return alert(ALERT_TITLE + "請選擇檔案"); const reader = new FileReader(); reader.onload = () => { try { const d = JSON.parse(reader.result); ss=d.ss||[]; adjs=d.adjs||[]; dayEx=d.dayEx||{}; sortSS(); save(); alert(ALERT_TITLE + "匯入成功！"); location.reload(); } catch(e) { alert(ALERT_TITLE + "格式錯誤"); } }; reader.readAsText(input.files[0]); } // 修改點 4
-    function clearAllData() { if(confirm(ALERT_TITLE + "⚠️ 確定清空所有資料嗎？")) { localStorage.clear(); location.reload(); } } // 修改點 4
+    // 修改點 2: 移除手動添加的標題
+    function importData() { const input = document.getElementById('importFile'); if(!input.files[0]) return alert("請選擇檔案"); const reader = new FileReader(); reader.onload = () => { try { const d = JSON.parse(reader.result); ss=d.ss||[]; adjs=d.adjs||[]; dayEx=d.dayEx||{}; sortSS(); save(); alert("匯入成功！"); location.reload(); } catch(e) { alert("格式錯誤"); } }; reader.readAsText(input.files[0]); } 
+    // 修改點 2: 移除手動添加的標題
+    function clearAllData() { if(confirm("⚠️ 確定清空所有資料嗎？")) { localStorage.clear(); location.reload(); } } 
 
     function initBilling() { selectedMonths=[]; document.getElementById('bB').value=0; document.getElementById('bT').value=""; renderMonthPicker(); let nowStr = getDStr(new Date()).substring(0, 7); toggleMonth(nowStr); }
        
