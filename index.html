@@ -12,7 +12,7 @@
         :root { --p: #5a67d8; --s: #48bb78; --d: #f56565; --bg: #f8fafc; }
         body { font-family: -apple-system, "Microsoft JhengHei", sans-serif; background: var(--bg); margin: 0; padding-bottom: 80px; }
         
-        /* 修改點 1: 導覽列 Flex 設定，垂直置中 */
+        /* 導覽列設定 */
         nav { background: white; display: flex; justify-content: space-around; align-items: center; padding: 10px 0; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.05); min-height: 50px; }
         nav div { font-weight: bold; color: #a0aec0; cursor: pointer; padding: 5px 5px; font-size: 14px; text-align: center; }
         nav div.active { color: var(--p); border-bottom: 2px solid var(--p); }
@@ -34,22 +34,25 @@
         #calendar { background: white; padding: 10px; border-radius: 15px; height: 70vh; }
         .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2000; align-items:center; justify-content:center; }
         
-        /* 修改點 2: 更嚴格的 CSS 確保單行顯示 */
+        /* 修改點 1: 針對 Task 1 的強力修正 */
         .range-btn { 
             background: #edf2f7; 
             color: #2d3748; 
             text-align: center; 
             border: 1.5px solid #e2e8f0; 
-            min-height: 45px; 
-            line-height: 43px; /* 扣除邊框的高度，確保垂直置中 */
+            height: 45px; /* 固定高度 */
+            line-height: 43px; /* 扣除邊框 */
             width: 100%; 
             border-radius: 10px; 
-            white-space: nowrap; 
-            overflow: hidden; 
-            text-overflow: ellipsis; 
+            
+            /* 關鍵修正：強制單行與省略 */
+            white-space: nowrap !important; 
+            overflow: hidden !important; 
+            text-overflow: ellipsis !important; 
+            
             display: block; 
-            padding: 0 8px;
-            font-size: 14px; /* 縮小一點字體避免太擠 */
+            padding: 0 2px; /* 極窄內距防止擠壓 */
+            font-size: 13px; /* 稍微縮小字體 */
             box-sizing: border-box;
             max-width: 100%;
         }
@@ -314,7 +317,8 @@
     function resetOneFp() {
         const name = document.getElementById('oneStudent').value;
         const now = new Date();
-        const maxD = new Date(now.getFullYear(), now.getMonth() + 12, 0);
+        // 修改點 2: 日期選擇範圍改為 + 14 (即未來13個月)
+        const maxD = new Date(now.getFullYear(), now.getMonth() + 14, 0);
         fpOne.clear();
         document.getElementById('oneRangeBtn').innerText = "📅 點擊選擇...";
         fpOne.set("minDate", null); 
@@ -334,11 +338,6 @@
         document.getElementById(id).classList.add('active-p');
         document.querySelectorAll('nav div').forEach(d => d.classList.remove('active'));
         if(el) {
-            // nav div 本身被點擊，如果是那個特殊的 div，el會指向div
-            // 因為結構改變，若 el 是內部元件可能需要向上找，但這裡直接傳 this 應該是 div
-            // 由於改成了 flex container，為了確保 active class 樣式正確，
-            // 若傳入的是內部元素，可能需要調整 CSS，但這裡 nav div.active 選擇器應該還能運作
-            // 因為 onclick 是綁在 parent div 上
             el.classList.add('active');
         }
         if(id === 'h') { renderCalFilter(); renderCal(); }
@@ -635,7 +634,8 @@
         let a = adjs[idx];
         const s = ss.find(x => x.n === a.target);
         const now = new Date();
-        const maxD = new Date(now.getFullYear(), now.getMonth() + 12, 0);
+        // 修改點 2: 日期選擇範圍改為 + 14 (即未來13個月)
+        const maxD = new Date(now.getFullYear(), now.getMonth() + 14, 0);
         document.getElementById('adjEditIdx').value = idx;
         document.getElementById('adjEditTarget').innerText = a.target === 'ALL' ? "📢 全體停課" : `👤 ${a.target} (加課)`;
         
@@ -745,7 +745,8 @@
         let evs = [], now = new Date();
         
         let startBound = new Date(now.getFullYear(), now.getMonth(), 1);
-        let endBound = new Date(now.getFullYear(), now.getMonth() + 12, 0); 
+        // 修改點 3: 日曆生成範圍改為 + 14 (即未來13個月)
+        let endBound = new Date(now.getFullYear(), now.getMonth() + 14, 0); 
 
         adjs.forEach(a => { if (new Date(a.start) < startBound) startBound = new Date(a.start); });
         
@@ -843,17 +844,15 @@
 
                     let d = new Date(p.date);
                     
-                    // 修改點 3: 修改日曆點擊邏輯，將週一視為一週的開始 (週一~週日)
-                    let currentDay = d.getDay(); // 0(Sun) - 6(Sat)
-                    // 將週日(0)轉換為7，方便計算距離週一的差距
+                    let currentDay = d.getDay(); 
                     let dayIndex = currentDay === 0 ? 7 : currentDay;
-                    let distanceToMonday = dayIndex - 1; // Mon(1)->0, Tue(2)->1, ..., Sun(7)->6
+                    let distanceToMonday = dayIndex - 1; 
 
                     let startOfWeek = new Date(d); 
-                    startOfWeek.setDate(d.getDate() - distanceToMonday); // 設定為本週一
+                    startOfWeek.setDate(d.getDate() - distanceToMonday); 
                     
                     let endOfWeek = new Date(startOfWeek);
-                    endOfWeek.setDate(startOfWeek.getDate() + 6); // 設定為本週日
+                    endOfWeek.setDate(startOfWeek.getDate() + 6); 
 
                     fpDateEdit.set("minDate", startOfWeek);
                     fpDateEdit.set("maxDate", endOfWeek);
@@ -994,7 +993,8 @@
         });
 
         let d = new Date(earliestDate);
-        let endBound = new Date(now.getFullYear(), now.getMonth() + 12, 0);
+        // 修改點 2: 費用選單範圍改為 + 14 (即未來13個月)
+        let endBound = new Date(now.getFullYear(), now.getMonth() + 14, 0);
         
         while(d <= endBound) {
             let dStr = getDStr(d);
