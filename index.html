@@ -21,7 +21,6 @@
         input, select, textarea { width: 100%; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 10px; box-sizing: border-box; font-size: 16px; }
         input:disabled, select:disabled { background-color: #f1f5f9; color: #94a3b8; cursor: not-allowed; }
         
-        /* 修改點 1: 強制時間輸入框在 flex 容器內平分寬度，手機版不換行 */
         .time-row { display: flex; gap: 10px; align-items: center; }
         .time-row input { flex: 1; width: auto; min-width: 0; }
 
@@ -31,7 +30,10 @@
         .btn-s { background: var(--s); } .btn-d { background: var(--d); } .btn-o { background: white; color: var(--p); border: 1.5px solid var(--p); }
         #calendar { background: white; padding: 10px; border-radius: 15px; height: 70vh; }
         .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2000; align-items:center; justify-content:center; }
-        .range-btn { background: #edf2f7; color: #2d3748; text-align: center; border: 1.5px solid #e2e8f0; min-height: 45px; display: flex; align-items: center; justify-content: center; width: 100%; border-radius: 10px; }
+        
+        /* 修改點 1: 加入 white-space: nowrap 確保日期選擇按鈕文字在手機上不換行 */
+        .range-btn { background: #edf2f7; color: #2d3748; text-align: center; border: 1.5px solid #e2e8f0; min-height: 45px; display: flex; align-items: center; justify-content: center; width: 100%; border-radius: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
         .range-btn:disabled { opacity: 0.6; cursor: not-allowed; }
         .adj-item { font-size: 14px; padding: 12px 0; border-bottom: 1px solid #edf2f7; display: flex; justify-content: space-between; align-items: center; }
         .month-chip { display: inline-block; padding: 10px 15px; margin: 5px; border-radius: 10px; border: 1px solid #e2e8f0; background: white; cursor: pointer; font-size: 14px; transition: 0.2s; }
@@ -211,6 +213,9 @@
     let tempNormalValues = { ts: "", te: "", r: "" };
     let calFilterNames = [];
 
+    // 提示標題常數
+    const ALERT_TITLE = "【音樂教學課程管理】\n\n";
+
     function sortSS() {
         ss.sort((a, b) => {
             let da = a.d === 0 ? 7 : a.d;
@@ -279,7 +284,6 @@
     let fpOne = flatpickr("#oneRangeBtn", { ...fpConfig, mode: "single", onChange: (d, str) => document.getElementById('oneRangeVal').value = str });
     let fpEdit = flatpickr("#adjEditRangeBtn", { ...fpConfig, dateFormat: "Y-m-d", onChange: (d, str) => document.getElementById('adjEditRangeVal').value = str });
        
-    // 修改點 2: 加入 disableMobile: true 以強制手機版遵守 minDate/maxDate 限制
     let fpDateEdit = flatpickr("#mDateBtn", {
         locale: "zh_tw", dateFormat: "Y-m-d",
         disableMobile: true, 
@@ -315,7 +319,15 @@
         if(el) el.classList.add('active');
         if(id === 'h') { renderCalFilter(); renderCal(); }
         if(id === 's') renderS();
-        if(id === 'off') { upOpt(); renderAdj(true); resetOneFp(); }
+        if(id === 'off') { 
+            upOpt(); 
+            renderAdj(true); 
+            resetOneFp(); 
+            // 修改點 2: 清除全體停課的選擇狀態
+            document.getElementById('allRangeVal').value = "";
+            document.getElementById('allRangeBtn').innerText = "📅 點擊選擇範圍...";
+            fpAll.clear();
+        }
         if(id === 'b') { upOpt(); initBilling(); }
     }
 
@@ -333,7 +345,7 @@
     }
 
     function delStudent(i) {
-        if(confirm(`確定刪除「${ss[i].n}」？`)) {
+        if(confirm(ALERT_TITLE + `確定刪除「${ss[i].n}」？`)) { // 修改點 4
             let name = ss[i].n;
             ss.splice(i,1);
             adjs = adjs.filter(a => a.target !== name);
@@ -366,13 +378,13 @@
         let ts = document.getElementById('sTs').value;
         let te = document.getElementById('sTe').value;
 
-        if (!name || !rate) return alert("請填寫姓名與學費！");
+        if (!name || !rate) return alert(ALERT_TITLE + "請填寫姓名與學費！"); // 修改點 4
         let i = document.getElementById('eIdx').value;
         
         let editIndex = (i === "") ? -1 : parseInt(i);
         
         let duplicate = ss.find((s, idx) => s.n === name && idx !== editIndex);
-        if (duplicate) return alert("此學生姓名已存在，請使用不同名稱！");
+        if (duplicate) return alert(ALERT_TITLE + "此學生姓名已存在，請使用不同名稱！"); // 修改點 4
 
         let now = new Date();
         let todayStr = getDStr(now);
@@ -380,7 +392,7 @@
         let firstDayStr = getDStr(firstDayOfCurrentMonth);
 
         let timeConflict = checkTimeConflict(name, wd, ts, te, i);
-        if (timeConflict) return alert(`🚫 時段衝突：\n與學生 ${timeConflict.n} 的時段 (${fmtT(timeConflict.ts)}~${fmtT(timeConflict.te)}) 重疊！`);
+        if (timeConflict) return alert(ALERT_TITLE + `🚫 時段衝突：\n與學生 ${timeConflict.n} 的時段 (${fmtT(timeConflict.ts)}~${fmtT(timeConflict.te)}) 重疊！`); // 修改點 4
 
         if(i==="") {
             ss.push({ n: name, d: wd, ts: ts, te: te, r: rate, history: [], createdDate: firstDayStr });
@@ -548,26 +560,26 @@
         }
 
         if (removedCount > 0) {
-            alert(`⚠️ 課程異動通知：\n由於固定課程恢復正常上課或時間變更，系統已自動移除 ${removedCount} 筆衝突的個別加課：\n\n${removedDetails.join('\n')}`);
+            alert(ALERT_TITLE + `⚠️ 課程異動通知：\n由於固定課程恢復正常上課或時間變更，系統已自動移除 ${removedCount} 筆衝突的個別加課：\n\n${removedDetails.join('\n')}`); // 修改點 4
             save(); 
             renderCal(); 
         }
     }
 
     function addAdj(target, type, valId, btnId) {
-        let val = document.getElementById(valId).value; if(!val) return alert("請選擇日期");
+        let val = document.getElementById(valId).value; if(!val) return alert(ALERT_TITLE + "請選擇日期"); // 修改點 4
         let parts = val.replace(/ (至|到) /g, "~").split("~");
         let start = parts[0].trim(), end = (parts[1]||parts[0]).trim();
         let ts = (type==='extra') ? document.getElementById('exTs').value : null;
         let te = (type==='extra') ? document.getElementById('exTe').value : null;
         let r = (type==='extra') ? document.getElementById('exRate').value : null;
         let reason = (target === 'ALL') ? document.getElementById('allReason').value : "";
-        if (target === 'ALL' && !reason.trim()) return alert("請填寫原因！");
+        if (target === 'ALL' && !reason.trim()) return alert(ALERT_TITLE + "請填寫原因！"); // 修改點 4
         
-        if (type === 'extra' && (r === "" || r === null)) return alert("請填寫加課費用！");
+        if (type === 'extra' && (r === "" || r === null)) return alert(ALERT_TITLE + "請填寫加課費用！"); // 修改點 4
 
         let conflict = checkAdjConflict(target, type, start, end, ts, te);
-        if (conflict) return alert(`🚫 無法新增：${conflict.msg}`);
+        if (conflict) return alert(ALERT_TITLE + `🚫 無法新增：${conflict.msg}`); // 修改點 4
         
         adjs.push({ target, type, start, end, ts, te, r, reason, createdAt: Date.now() });
         
@@ -575,7 +587,7 @@
 
         save(); renderAdj(); 
         
-        alert(target === 'ALL' ? "已成功設定全體停課！" : "已成功新增加課！");
+        alert(ALERT_TITLE + (target === 'ALL' ? "已成功設定全體停課！" : "已成功新增加課！")); // 修改點 4
 
         document.getElementById(btnId).innerText="📅 點擊選擇日期..."; 
         document.getElementById('allReason').value = ""; 
@@ -606,7 +618,6 @@
         
         fpEdit.set("mode", a.type === 'extra' ? "single" : "range");
         
-        // 修正：如果 start 與 end 相同，顯示單一日期
         let rangeDisplay = (a.start === a.end) ? a.start : (a.start + " ~ " + a.end);
         document.getElementById('adjEditRangeVal').value = rangeDisplay;
         document.getElementById('adjEditRangeBtn').innerText = rangeDisplay;
@@ -639,10 +650,10 @@
         let r = old.type==='extra'?document.getElementById('adjEditRate').value:null;
         let reason = old.type!=='extra'?document.getElementById('adjEditReason').value:null;
         
-        if (old.type === 'extra' && (r === "" || r === null)) return alert("請填寫費用！");
+        if (old.type === 'extra' && (r === "" || r === null)) return alert(ALERT_TITLE + "請填寫費用！"); // 修改點 4
 
         let conflict = checkAdjConflict(old.target, old.type, start, end, ts, te, idx);
-        if (conflict) return alert(`🚫 無法修改：${conflict.msg}`);
+        if (conflict) return alert(ALERT_TITLE + `🚫 無法修改：${conflict.msg}`); // 修改點 4
         adjs[idx] = { ...old, start, end, ts, te, r, reason };
         
         revalidateAndCleanExtras();
@@ -653,7 +664,7 @@
     function delAdjFromModal() { let idx = parseInt(document.getElementById('adjEditIdx').value); delAdjItem(idx); closeModal(); }
 
     function delAdjItem(idx) {
-        if (!confirm('確定刪除此設定？')) return;
+        if (!confirm(ALERT_TITLE + '確定刪除此設定？')) return; // 修改點 4
         adjs.splice(idx, 1);
         revalidateAndCleanExtras();
         save(); renderAdj(); renderCal();
@@ -669,7 +680,6 @@
         let filterName = filterEl.value;
         let sorted = [...adjs].sort((a, b) => b.start.localeCompare(a.start));
         
-        // 修改點 3: 若 start 與 end 相同，只顯示單一日期
         let allHtml = sorted.filter(a => a.target === 'ALL').map(a => {
             let realIdx = adjs.indexOf(a);
             let dateStr = (a.start === a.end) ? a.start : `${a.start} ~ ${a.end}`;
@@ -725,7 +735,8 @@
 
                 let extras = adjs.filter(a => a.target === s.n && a.type === 'extra' && dStr >= a.start && dStr <= a.end);
                 extras.forEach(extra => {
-                    evs.push({ title:`➕ ${s.n} ${fmtT(extra.ts)}`, start: dStr+'T'+extra.ts, backgroundColor: '#c6f6d5', borderColor: '#c6f6d5', textColor:'#22543d', extendedProps:{name:s.n, date:dStr, rate:extra.r, ts:extra.ts, te:extra.te, adjIdx: adjs.indexOf(extra), isExtra: true} });
+                    // 修改點 3: 符號換成 ❇️
+                    evs.push({ title:`❇️ ${s.n} ${fmtT(extra.ts)}`, start: dStr+'T'+extra.ts, backgroundColor: '#c6f6d5', borderColor: '#c6f6d5', textColor:'#22543d', extendedProps:{name:s.n, date:dStr, rate:extra.r, ts:extra.ts, te:extra.te, adjIdx: adjs.indexOf(extra), isExtra: true} });
                 });
 
                 let lessonInfo = getEffectiveLesson(s.n, dStr);
@@ -764,7 +775,15 @@
         }
         cal = new FullCalendar.Calendar(document.getElementById('calendar'), {
             initialView:'dayGridMonth', locale:'zh-tw', events:evs, headerToolbar:{left:'prev,next', center:'title', right:'today'},
-            eventContent:(arg)=>({ domNodes:[Object.assign(document.createElement('div'),{innerText:arg.event.title, style:'font-size:11px;padding:2px'})] }),
+            eventContent:(arg)=>({ 
+                domNodes:[
+                    // 修改點 3: 確保背景色能套用到自定義的 div 上
+                    Object.assign(document.createElement('div'), {
+                        innerText:arg.event.title, 
+                        style:`font-size:11px; padding:2px; background-color: ${arg.event.backgroundColor || arg.event.borderColor}; color: ${arg.event.textColor}; border-radius: 3px;`
+                    })
+                ] 
+            }),
             eventClick:(info)=>{
                 let p = info.event.extendedProps; if(!p || !p.name) return;
                 if (p.isExtra) { openAdjEdit(p.adjIdx); } 
@@ -893,7 +912,7 @@
         let newDateStr = document.getElementById('mDateVal').value;
         let origDateStr = document.getElementById('mOrigDate').value;
                 
-        if (status === 'off' && !reason.trim()) return alert("請輸入停課原因！");
+        if (status === 'off' && !reason.trim()) return alert(ALERT_TITLE + "請輸入停課原因！"); // 修改點 4
 
         if (newDateStr && newDateStr !== origDateStr) {
             dayEx[origDateStr + "_" + curEditName] = { deleted: true };
@@ -915,8 +934,8 @@
     function closeModal() { document.querySelectorAll('.modal').forEach(m=>m.style.display='none'); }
     function share() { window.location.href = "https://line.me/R/msg/text/?" + encodeURIComponent(document.getElementById('bT').value); }
     function exportData() { const blob = new Blob([JSON.stringify({ss, adjs, dayEx})], {type:'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `piano_backup.json`; a.click(); }
-    function importData() { const input = document.getElementById('importFile'); if(!input.files[0]) return alert("請選擇檔案"); const reader = new FileReader(); reader.onload = () => { try { const d = JSON.parse(reader.result); ss=d.ss||[]; adjs=d.adjs||[]; dayEx=d.dayEx||{}; sortSS(); save(); alert("匯入成功！"); location.reload(); } catch(e) { alert("格式錯誤"); } }; reader.readAsText(input.files[0]); }
-    function clearAllData() { if(confirm("⚠️ 確定清空所有資料嗎？")) { localStorage.clear(); location.reload(); } }
+    function importData() { const input = document.getElementById('importFile'); if(!input.files[0]) return alert(ALERT_TITLE + "請選擇檔案"); const reader = new FileReader(); reader.onload = () => { try { const d = JSON.parse(reader.result); ss=d.ss||[]; adjs=d.adjs||[]; dayEx=d.dayEx||{}; sortSS(); save(); alert(ALERT_TITLE + "匯入成功！"); location.reload(); } catch(e) { alert(ALERT_TITLE + "格式錯誤"); } }; reader.readAsText(input.files[0]); } // 修改點 4
+    function clearAllData() { if(confirm(ALERT_TITLE + "⚠️ 確定清空所有資料嗎？")) { localStorage.clear(); location.reload(); } } // 修改點 4
 
     function initBilling() { selectedMonths=[]; document.getElementById('bB').value=0; document.getElementById('bT').value=""; renderMonthPicker(); let nowStr = getDStr(new Date()).substring(0, 7); toggleMonth(nowStr); }
        
