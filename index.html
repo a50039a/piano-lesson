@@ -51,10 +51,12 @@
             text-overflow: ellipsis !important; 
             
             display: block; 
-            padding: 0 2px; /* 極窄內距防止擠壓 */
+            padding: 0; /* 移除內距防止擠壓 */
             font-size: 13px; /* 稍微縮小字體 */
             box-sizing: border-box;
             max-width: 100%;
+            -webkit-appearance: none; /* 移除 iOS 預設樣式 */
+            appearance: none;
         }
         
         .range-btn:disabled { opacity: 0.6; cursor: not-allowed; }
@@ -101,7 +103,7 @@
     <div class="card">
         <h3>🟢 個別加課</h3>
         <label>選擇學生</label><select id="oneStudent" onchange="resetOneFp();"></select>
-        <button id="oneRangeBtn" class="range-btn" style="margin-top:10px;">📅 點擊選擇...</button>
+        <button id="oneRangeBtn" class="range-btn" style="margin-top:10px;">📅 選擇日期</button>
         <input type="hidden" id="oneRangeVal">
         <div id="extraTimeArea">
             <label>加課時段</label>
@@ -317,10 +319,10 @@
     function resetOneFp() {
         const name = document.getElementById('oneStudent').value;
         const now = new Date();
-        // 修改點 2: 日期選擇範圍改為 + 14 (即未來13個月)
-        const maxD = new Date(now.getFullYear(), now.getMonth() + 14, 0);
+        // 修改點 3: 日期選擇範圍改為 + 12 (即未來11個月的那個月月底)
+        const maxD = new Date(now.getFullYear(), now.getMonth() + 12, 0);
         fpOne.clear();
-        document.getElementById('oneRangeBtn').innerText = "📅 點擊選擇...";
+        document.getElementById('oneRangeBtn').innerText = "📅 選擇日期";
         fpOne.set("minDate", null); 
         fpOne.set("maxDate", maxD);
         
@@ -611,7 +613,7 @@
         
         alert(target === 'ALL' ? "已成功設定全體停課！" : "已成功新增加課！"); 
 
-        document.getElementById(btnId).innerText="📅 點擊選擇日期..."; 
+        document.getElementById(btnId).innerText="📅 選擇日期"; 
         document.getElementById('allReason').value = ""; 
         
         if (target !== 'ALL') {
@@ -634,8 +636,8 @@
         let a = adjs[idx];
         const s = ss.find(x => x.n === a.target);
         const now = new Date();
-        // 修改點 2: 日期選擇範圍改為 + 14 (即未來13個月)
-        const maxD = new Date(now.getFullYear(), now.getMonth() + 14, 0);
+        // 修改點 3: 日期選擇範圍改為 + 12 (即未來11個月的那個月月底)
+        const maxD = new Date(now.getFullYear(), now.getMonth() + 12, 0);
         document.getElementById('adjEditIdx').value = idx;
         document.getElementById('adjEditTarget').innerText = a.target === 'ALL' ? "📢 全體停課" : `👤 ${a.target} (加課)`;
         
@@ -745,8 +747,8 @@
         let evs = [], now = new Date();
         
         let startBound = new Date(now.getFullYear(), now.getMonth(), 1);
-        // 修改點 3: 日曆生成範圍改為 + 14 (即未來13個月)
-        let endBound = new Date(now.getFullYear(), now.getMonth() + 14, 0); 
+        // 修改點 3: 日曆生成範圍改為 + 12 (即未來11個月的那個月月底)
+        let endBound = new Date(now.getFullYear(), now.getMonth() + 12, 0); 
 
         adjs.forEach(a => { if (new Date(a.start) < startBound) startBound = new Date(a.start); });
         
@@ -844,15 +846,16 @@
 
                     let d = new Date(p.date);
                     
-                    let currentDay = d.getDay(); 
+                    // 修改點 4: 修正跨月同週的日期範圍計算
+                    let currentDay = d.getDay(); // 0(Sun) - 6(Sat)
                     let dayIndex = currentDay === 0 ? 7 : currentDay;
-                    let distanceToMonday = dayIndex - 1; 
+                    let distanceToMonday = dayIndex - 1;
 
                     let startOfWeek = new Date(d); 
-                    startOfWeek.setDate(d.getDate() - distanceToMonday); 
+                    startOfWeek.setDate(d.getDate() - distanceToMonday); // 回推到週一
                     
                     let endOfWeek = new Date(startOfWeek);
-                    endOfWeek.setDate(startOfWeek.getDate() + 6); 
+                    endOfWeek.setDate(startOfWeek.getDate() + 6); // 往後推到週日
 
                     fpDateEdit.set("minDate", startOfWeek);
                     fpDateEdit.set("maxDate", endOfWeek);
@@ -993,8 +996,8 @@
         });
 
         let d = new Date(earliestDate);
-        // 修改點 2: 費用選單範圍改為 + 14 (即未來13個月)
-        let endBound = new Date(now.getFullYear(), now.getMonth() + 14, 0);
+        // 修改點 3: 費用選單範圍改為 + 12 (即未來11個月)
+        let endBound = new Date(now.getFullYear(), now.getMonth() + 12, 0);
         
         while(d <= endBound) {
             let dStr = getDStr(d);
