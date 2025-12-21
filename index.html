@@ -11,9 +11,12 @@
     <style>
         :root { --p: #5a67d8; --s: #48bb78; --d: #f56565; --bg: #f8fafc; }
         body { font-family: -apple-system, "Microsoft JhengHei", sans-serif; background: var(--bg); margin: 0; padding-bottom: 80px; }
-        nav { background: white; display: flex; justify-content: space-around; padding: 15px 0; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        nav div { font-weight: bold; color: #a0aec0; cursor: pointer; padding: 5px 10px; font-size: 14px; }
+        
+        /* 修改點 2: 加入 align-items: center 讓兩行文字垂直置中 */
+        nav { background: white; display: flex; justify-content: space-around; align-items: center; padding: 10px 0; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.05); min-height: 50px; }
+        nav div { font-weight: bold; color: #a0aec0; cursor: pointer; padding: 5px 10px; font-size: 14px; text-align: center; }
         nav div.active { color: var(--p); border-bottom: 2px solid var(--p); }
+        
         .page { display: none; padding: 15px; max-width: 600px; margin: auto; }
         .active-p { display: block; }
         .card { background: white; border-radius: 15px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); border: 1px solid #edf2f7; }
@@ -31,21 +34,21 @@
         #calendar { background: white; padding: 10px; border-radius: 15px; height: 70vh; }
         .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2000; align-items:center; justify-content:center; }
         
-        /* 修改點 1: 改用 display: block 配合 overflow，更強力解決手機版文字換行問題 */
+        /* 修改點 1: 優化 range-btn 樣式，確保文字絕對不換行 */
         .range-btn { 
             background: #edf2f7; 
             color: #2d3748; 
             text-align: center; 
             border: 1.5px solid #e2e8f0; 
             min-height: 45px; 
-            line-height: 45px; /* 垂直置中 */
+            line-height: 45px; /* 確保文字垂直置中 */
             width: 100%; 
             border-radius: 10px; 
-            white-space: nowrap; 
+            white-space: nowrap; /* 強制不換行 */
             overflow: hidden; 
             text-overflow: ellipsis; 
-            display: block; /* 避免 flex 導致的壓縮問題 */
-            padding: 0 10px; /* 左右留白 */
+            display: block; 
+            padding: 0 5px; /* 減少內距以容納更多文字 */
             box-sizing: border-box;
         }
         
@@ -60,7 +63,7 @@
 <nav>
     <div onclick="showP('h',this)" class="active">📅 日曆</div>
     <div onclick="showP('s',this)">👥 學生</div>
-    <div onclick="showP('off',this)">🚫 全體停課/個別加課</div>
+    <div onclick="showP('off',this)" style="line-height: 1.3; font-size: 13px;">🚫 全體停課<br>個別加課</div>
     <div onclick="showP('b',this)">💰 費用</div>
     <div onclick="showP('m',this)">⚙️ 管理</div>
 </nav>
@@ -353,7 +356,6 @@
     }
 
     function delStudent(i) {
-        // 修改點 2: 移除手動添加的標題
         if(confirm(`確定刪除「${ss[i].n}」？`)) { 
             let name = ss[i].n;
             ss.splice(i,1);
@@ -387,13 +389,11 @@
         let ts = document.getElementById('sTs').value;
         let te = document.getElementById('sTe').value;
 
-        // 修改點 2: 移除手動添加的標題
         if (!name || !rate) return alert("請填寫姓名與學費！"); 
         let i = document.getElementById('eIdx').value;
         
         let editIndex = (i === "") ? -1 : parseInt(i);
         
-        // 修改點 2: 移除手動添加的標題
         let duplicate = ss.find((s, idx) => s.n === name && idx !== editIndex);
         if (duplicate) return alert("此學生姓名已存在，請使用不同名稱！"); 
 
@@ -402,7 +402,6 @@
         let firstDayOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         let firstDayStr = getDStr(firstDayOfCurrentMonth);
 
-        // 修改點 2: 移除手動添加的標題
         let timeConflict = checkTimeConflict(name, wd, ts, te, i);
         if (timeConflict) return alert(`🚫 時段衝突：\n與學生 ${timeConflict.n} 的時段 (${fmtT(timeConflict.ts)}~${fmtT(timeConflict.te)}) 重疊！`); 
 
@@ -572,7 +571,6 @@
         }
 
         if (removedCount > 0) {
-            // 修改點 2: 移除手動添加的標題
             alert(`⚠️ 課程異動通知：\n由於固定課程恢復正常上課或時間變更，系統已自動移除 ${removedCount} 筆衝突的個別加課：\n\n${removedDetails.join('\n')}`); 
             save(); 
             renderCal(); 
@@ -580,7 +578,6 @@
     }
 
     function addAdj(target, type, valId, btnId) {
-        // 修改點 2: 移除手動添加的標題 (多處)
         let val = document.getElementById(valId).value; if(!val) return alert("請選擇日期"); 
         let parts = val.replace(/ (至|到) /g, "~").split("~");
         let start = parts[0].trim(), end = (parts[1]||parts[0]).trim();
@@ -664,7 +661,6 @@
         let r = old.type==='extra'?document.getElementById('adjEditRate').value:null;
         let reason = old.type!=='extra'?document.getElementById('adjEditReason').value:null;
         
-        // 修改點 2: 移除手動添加的標題
         if (old.type === 'extra' && (r === "" || r === null)) return alert("請填寫費用！"); 
 
         let conflict = checkAdjConflict(old.target, old.type, start, end, ts, te, idx);
@@ -679,7 +675,6 @@
     function delAdjFromModal() { let idx = parseInt(document.getElementById('adjEditIdx').value); delAdjItem(idx); closeModal(); }
 
     function delAdjItem(idx) {
-        // 修改點 2: 移除手動添加的標題
         if (!confirm('確定刪除此設定？')) return; 
         adjs.splice(idx, 1);
         revalidateAndCleanExtras();
@@ -775,7 +770,6 @@
                          }
                       }
 
-                    // 修改點 3: 顯示格式調整為 {學生姓名} ({原因})
                     if (finalStatus === 'global_off') {
                         finalReason = isAllOff ? isAllOff.reason : '';
                         evs.push({ title:`🚫 ${s.n} (${finalReason||'全體停課'})`, start: dStr, color:'#fbb6ce', textColor:'#702459', extendedProps:{name:s.n, date:dStr, isFixed: true} });
@@ -822,7 +816,6 @@
                     let currentTe = (ex.te) ? ex.te : baseTe;
                     let currentR = (ex.r) ? ex.r : baseR;
                     
-                    // 修改點 4: 如果原本是正常上課(沒有ex記錄或ex.status=normal)，點進來時停課原因先清空
                     let currentReason = ex.reason || "";
                     if (!ex.status || ex.status === 'normal') {
                         currentReason = "";
@@ -837,8 +830,19 @@
                     document.getElementById('mOffReason').value = currentReason;
 
                     let d = new Date(p.date);
-                    let startOfWeek = new Date(d); startOfWeek.setDate(d.getDate() - d.getDay());
-                    let endOfWeek = new Date(d); endOfWeek.setDate(d.getDate() + (6 - d.getDay()));
+                    
+                    // 修改點 3: 修改日曆點擊邏輯，將週一視為一週的開始 (週一~週日)
+                    let currentDay = d.getDay(); // 0(Sun) - 6(Sat)
+                    // 將週日(0)轉換為7，方便計算距離週一的差距
+                    let dayIndex = currentDay === 0 ? 7 : currentDay;
+                    let distanceToMonday = dayIndex - 1; // Mon(1)->0, Tue(2)->1, ..., Sun(7)->6
+
+                    let startOfWeek = new Date(d); 
+                    startOfWeek.setDate(d.getDate() - distanceToMonday); // 設定為本週一
+                    
+                    let endOfWeek = new Date(startOfWeek);
+                    endOfWeek.setDate(startOfWeek.getDate() + 6); // 設定為本週日
+
                     fpDateEdit.set("minDate", startOfWeek);
                     fpDateEdit.set("maxDate", endOfWeek);
                     fpDateEdit.jumpToDate(d);
@@ -846,17 +850,14 @@
                     document.getElementById('mDateVal').value = p.date;
                     document.getElementById('mDateBtn').innerText = p.date;
 
-                    // 修改點 5: 動態生成 select 選項，避免 iPhone 顯示 disabled 的全體停課選項
                     let statusSelect = document.getElementById('mStatus');
                     let savedStatus = ex.status || 'normal'; 
                     let isGlobalOff = adjs.find(a => a.target === 'ALL' && p.date >= a.start && p.date <= a.end);
 
                     if (isGlobalOff) {
-                         // 全體停課狀態，只有一個選項
                          statusSelect.innerHTML = '<option value="global_off">⛔ 全體停課</option>';
                          statusSelect.value = 'global_off';
                     } else {
-                         // 正常或個別停課，不顯示全體停課選項
                          statusSelect.innerHTML = '<option value="normal">🔵 正常上課</option><option value="off">🔴 停課</option>';
                          statusSelect.value = (savedStatus === 'global_off') ? 'normal' : savedStatus;
                     }
@@ -883,7 +884,6 @@
         let rInput = document.getElementById('mR');
 
         if (isGlobalOff) {
-            // 如果切換日期後變成全體停課
             if (statusSelect.value !== 'global_off') {
                 statusSelect.innerHTML = '<option value="global_off">⛔ 全體停課</option>';
                 statusSelect.value = 'global_off';
@@ -899,7 +899,6 @@
             rInput.disabled = false;
 
         } else {
-            // 如果原本是全體停課，現在切換日期變成非全體停課
             if (statusSelect.value === 'global_off' || statusSelect.options.length === 1) {
                  statusSelect.innerHTML = '<option value="normal">🔵 正常上課</option><option value="off">🔴 停課</option>';
                  statusSelect.value = 'normal';
@@ -917,7 +916,6 @@
                 if (teInput.value === "") teInput.value = tempNormalValues.te;
                 if (rInput.value === "") rInput.value = tempNormalValues.r;
                 
-                // 修改點 6: 停課時，允許編輯時間與學費 (取消 disabled)
                 tsInput.disabled = false;
                 teInput.disabled = false;
                 rInput.disabled = false;
@@ -943,7 +941,6 @@
         let newDateStr = document.getElementById('mDateVal').value;
         let origDateStr = document.getElementById('mOrigDate').value;
                 
-        // 修改點 2: 移除手動添加的標題
         if (status === 'off' && !reason.trim()) return alert("請輸入停課原因！"); 
 
         if (newDateStr && newDateStr !== origDateStr) {
@@ -966,9 +963,7 @@
     function closeModal() { document.querySelectorAll('.modal').forEach(m=>m.style.display='none'); }
     function share() { window.location.href = "https://line.me/R/msg/text/?" + encodeURIComponent(document.getElementById('bT').value); }
     function exportData() { const blob = new Blob([JSON.stringify({ss, adjs, dayEx})], {type:'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `piano_backup.json`; a.click(); }
-    // 修改點 2: 移除手動添加的標題
     function importData() { const input = document.getElementById('importFile'); if(!input.files[0]) return alert("請選擇檔案"); const reader = new FileReader(); reader.onload = () => { try { const d = JSON.parse(reader.result); ss=d.ss||[]; adjs=d.adjs||[]; dayEx=d.dayEx||{}; sortSS(); save(); alert("匯入成功！"); location.reload(); } catch(e) { alert("格式錯誤"); } }; reader.readAsText(input.files[0]); } 
-    // 修改點 2: 移除手動添加的標題
     function clearAllData() { if(confirm("⚠️ 確定清空所有資料嗎？")) { localStorage.clear(); location.reload(); } } 
 
     function initBilling() { selectedMonths=[]; document.getElementById('bB').value=0; document.getElementById('bT').value=""; renderMonthPicker(); let nowStr = getDStr(new Date()).substring(0, 7); toggleMonth(nowStr); }
