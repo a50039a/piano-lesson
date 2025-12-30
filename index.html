@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<meta name="theme-color" content="#5a67d8">
+    <meta name="theme-color" content="#5a67d8">
     <title>音樂教學課程管理</title>
-	<link rel="icon" href="yes_piano_logo.png" type="image/x-icon">
-	<link rel="apple-touch-icon" href="yes_piano_logo.png">
-	<link rel="shortcut icon" href="yes_piano_logo.png">
-	<link rel="manifest" href="manifest.json">
+    <link rel="icon" href="yes_piano_logo.png" type="image/x-icon">
+    <link rel="apple-touch-icon" href="yes_piano_logo.png">
+    <link rel="shortcut icon" href="yes_piano_logo.png">
+    <link rel="manifest" href="manifest.json">
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -67,6 +67,16 @@
         .adj-item { font-size: 14px; padding: 12px 0; border-bottom: 1px solid #edf2f7; display: flex; justify-content: space-between; align-items: center; }
         .month-chip { display: inline-block; padding: 10px 15px; margin: 5px; border-radius: 10px; border: 1px solid #e2e8f0; background: white; cursor: pointer; font-size: 14px; transition: 0.2s; }
         .month-chip.selected { background: var(--p); color: white; border-color: var(--p); }
+
+        /* 新增：繳費狀態列表樣式 */
+        .pay-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px; border-bottom: 1px solid #edf2f7;
+        }
+        .pay-item:last-child { border-bottom: none; }
+        .pay-tag { font-size: 12px; padding: 4px 8px; border-radius: 5px; font-weight: bold; }
+        .tag-unpaid { background: #fed7d7; color: #c53030; }
+        .tag-paid { background: #c6f6d5; color: #22543d; }
     </style>
 </head>
 <body>
@@ -141,6 +151,22 @@
         <label>教材費</label><input type="number" id="bB" value="0" onchange="upB()">
         <textarea id="bT" rows="11" style="margin-top:15px; background:#f8fafc; font-size: 14px; border:none;"></textarea>
         <button class="btn-s" style="margin-top:10px;" onclick="share()">LINE 分享明細</button>
+    </div>
+
+    <div class="card" style="margin-top: 20px; border-top: 4px solid var(--p);">
+        <h3>✅ 繳費狀態管理</h3>
+        
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; background: #f7fafc; padding: 10px; border-radius: 10px;">
+            <button class="btn-o" style="width: 45px; padding: 5px;" onclick="changePayMonth(-1)">◀</button>
+            <div id="payMonthDisplay" style="font-weight: bold; font-size: 18px; color: #2d3748;"></div>
+            <button class="btn-o" style="width: 45px; padding: 5px;" onclick="changePayMonth(1)">▶</button>
+        </div>
+
+        <div style="margin-bottom: 10px; font-size: 14px; color: #718096; text-align: center;">
+            顯示該月份有上課紀錄的學生
+        </div>
+
+        <div id="paymentListArea"></div>
     </div>
 </div>
 
@@ -238,9 +264,15 @@
     let ss = JSON.parse(localStorage.getItem('p_ss')) || [];
     let adjs = JSON.parse(localStorage.getItem('p_adjs')) || [];
     let dayEx = JSON.parse(localStorage.getItem('p_dayEx')) || {};
+    // 新增：讀取繳費資料
+    let payments = JSON.parse(localStorage.getItem('p_payments')) || {};
+
     let selectedMonths = [], cal, curEditName;
     let tempNormalValues = { ts: "", te: "", r: "" };
     let calFilterNames = [];
+
+    // 新增：繳費管理目前檢視的月份
+    let curPayMonthStr = getDStr(new Date()).substring(0, 7);
 
     function sortSS() {
         ss.sort((a, b) => {
@@ -308,7 +340,6 @@
     };
     let fpAll = flatpickr("#allRangeBtn", { ...fpConfig, onChange: (d, str) => document.getElementById('allRangeVal').value = str });
     
-    // 修改點 1: 加入 disableMobile: true 以統一介面
     let fpOne = flatpickr("#oneRangeBtn", { 
         ...fpConfig, 
         mode: "single", 
@@ -318,7 +349,7 @@
     });
     
     let fpEdit = flatpickr("#adjEditRangeBtn", { ...fpConfig, dateFormat: "Y-m-d", onChange: (d, str) => document.getElementById('adjEditRangeVal').value = str });
-       
+        
     let fpDateEdit = flatpickr("#mDateBtn", {
         locale: "zh_tw", dateFormat: "Y-m-d",
         disableMobile: true, 
@@ -364,13 +395,20 @@
             document.getElementById('allRangeBtn').innerText = "📅 點擊選擇範圍...";
             fpAll.clear();
         }
-        if(id === 'b') { upOpt(); initBilling(); }
+        if(id === 'b') { 
+            upOpt(); 
+            initBilling(); 
+            // 新增：進入費用頁面時初始化繳費管理
+            initPaymentView();
+        }
     }
 
     function save() {
         localStorage.setItem('p_ss', JSON.stringify(ss));
         localStorage.setItem('p_adjs', JSON.stringify(adjs));
         localStorage.setItem('p_dayEx', JSON.stringify(dayEx));
+        // 新增：儲存繳費資料
+        localStorage.setItem('p_payments', JSON.stringify(payments));
     }
 
     function renderS() {
@@ -788,12 +826,12 @@
                     let finalR = s.r; 
                     if (ex && ex.r) finalR = ex.r;
                     else {
-                         let curWeekday = d.getDay();
-                         if (s.history) {
+                          let curWeekday = d.getDay();
+                          if (s.history) {
                              let h = s.history.find(hist => dStr < hist.until);
                              if (h && curWeekday === h.d) finalR = h.r; 
-                         }
-                      }
+                          }
+                       }
 
                     if (finalStatus === 'global_off') {
                         finalReason = isAllOff ? isAllOff.reason : '';
@@ -878,11 +916,11 @@
                     let isGlobalOff = adjs.find(a => a.target === 'ALL' && p.date >= a.start && p.date <= a.end);
 
                     if (isGlobalOff) {
-                         statusSelect.innerHTML = '<option value="global_off">⛔ 全體停課</option>';
-                         statusSelect.value = 'global_off';
+                          statusSelect.innerHTML = '<option value="global_off">⛔ 全體停課</option>';
+                          statusSelect.value = 'global_off';
                     } else {
-                         statusSelect.innerHTML = '<option value="normal">🔵 正常上課</option><option value="off">🔴 停課</option>';
-                         statusSelect.value = (savedStatus === 'global_off') ? 'normal' : savedStatus;
+                          statusSelect.innerHTML = '<option value="normal">🔵 正常上課</option><option value="off">🔴 停課</option>';
+                          statusSelect.value = (savedStatus === 'global_off') ? 'normal' : savedStatus;
                     }
 
                     updateDayModalUI(false); 
@@ -985,12 +1023,14 @@
     function upOpt() { let options = ss.map(s => `<option value="${s.n}">${s.n}</option>`).join(''); document.getElementById('bS').innerHTML = options; document.getElementById('oneStudent').innerHTML = options; document.getElementById('filterStudent').innerHTML = options; }
     function closeModal() { document.querySelectorAll('.modal').forEach(m=>m.style.display='none'); }
     function share() { window.location.href = "https://line.me/R/msg/text/?" + encodeURIComponent(document.getElementById('bT').value); }
-    function exportData() { const blob = new Blob([JSON.stringify({ss, adjs, dayEx})], {type:'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `piano_backup.json`; a.click(); }
-    function importData() { const input = document.getElementById('importFile'); if(!input.files[0]) return alert("請選擇檔案"); const reader = new FileReader(); reader.onload = () => { try { const d = JSON.parse(reader.result); ss=d.ss||[]; adjs=d.adjs||[]; dayEx=d.dayEx||{}; sortSS(); save(); alert("匯入成功！"); location.reload(); } catch(e) { alert("格式錯誤"); } }; reader.readAsText(input.files[0]); } 
+    // 新增：加入 payments 備份
+    function exportData() { const blob = new Blob([JSON.stringify({ss, adjs, dayEx, payments})], {type:'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `piano_backup.json`; a.click(); }
+    // 新增：加入 payments 還原
+    function importData() { const input = document.getElementById('importFile'); if(!input.files[0]) return alert("請選擇檔案"); const reader = new FileReader(); reader.onload = () => { try { const d = JSON.parse(reader.result); ss=d.ss||[]; adjs=d.adjs||[]; dayEx=d.dayEx||{}; payments=d.payments||{}; sortSS(); save(); alert("匯入成功！"); location.reload(); } catch(e) { alert("格式錯誤"); } }; reader.readAsText(input.files[0]); } 
     function clearAllData() { if(confirm("⚠️ 確定清空所有資料嗎？")) { localStorage.clear(); location.reload(); } } 
 
     function initBilling() { selectedMonths=[]; document.getElementById('bB').value=0; document.getElementById('bT').value=""; renderMonthPicker(); let nowStr = getDStr(new Date()).substring(0, 7); toggleMonth(nowStr); }
-       
+        
     function renderMonthPicker() {
         let n = document.getElementById('bS').value; if(!n) return;
         let s = ss.find(x => x.n === n); if(!s) return;
@@ -1023,10 +1063,9 @@
         document.getElementById('monthPicker').innerHTML = Array.from(avMonths).sort().map(m => `<div class="month-chip ${selectedMonths.includes(m)?'selected':''}" onclick="toggleMonth('${m}')">${m}</div>`).join('');
         upB();
     }
-       
+        
     function toggleMonth(m) { if(selectedMonths.includes(m)) selectedMonths = selectedMonths.filter(x => x !== m); else selectedMonths.push(m); renderMonthPicker(); }
-       
-    // 修改點 2: 重寫 upB 函式，採用新的格式邏輯
+        
     function upB() {
         let n = document.getElementById('bS').value; 
         if(!n || selectedMonths.length === 0) { document.getElementById('bT').value = ""; return; }
@@ -1133,8 +1172,134 @@
         document.getElementById('bT').value = output;
     }
 
+    // ==========================================
+    // 新增功能：繳費狀態管理邏輯
+    // ==========================================
+
+    function initPaymentView() {
+        renderPaymentList();
+    }
+
+    function changePayMonth(delta) {
+        let d = new Date(curPayMonthStr + "-01");
+        d.setMonth(d.getMonth() + delta);
+        
+        // 修正點：加入最大月份限制，與 renderMonthPicker 的邏輯一致 (當前時間 + 12個月)
+        let now = new Date();
+        let maxBound = new Date(now.getFullYear(), now.getMonth() + 12, 0);
+        let targetComp = new Date(d.getFullYear(), d.getMonth(), 1);
+
+        // 如果目標月份大於最大限制，且是往未來切換，則不執行
+        if (targetComp > maxBound && delta > 0) {
+            return;
+        }
+
+        curPayMonthStr = getDStr(d).substring(0, 7);
+        renderPaymentList();
+    }
+
+    // 檢查該學生在指定月份是否有需要繳費的上課紀錄 (包含正常上課或加課)
+    function checkHasLessonInMonth(studentName, monthStr) {
+        let d = new Date(monthStr + "-01");
+        let mon = d.getMonth();
+        let hasLesson = false;
+        
+        while(d.getMonth() === mon) {
+            let dStr = getDStr(d);
+            
+            // 檢查加課
+            let isExtra = adjs.some(a => a.target === studentName && a.type === 'extra' && dStr === a.start);
+            if (isExtra) {
+                hasLesson = true;
+                break;
+            }
+
+            // 檢查固定課程
+            let lessonInfo = getEffectiveLesson(studentName, dStr);
+            if (lessonInfo && lessonInfo.status === 'normal') {
+                hasLesson = true;
+                break;
+            }
+            
+            d.setDate(d.getDate() + 1);
+        }
+        return hasLesson;
+    }
+
+    function renderPaymentList() {
+        let displayEl = document.getElementById('payMonthDisplay');
+        let [y, m] = curPayMonthStr.split('-');
+        displayEl.innerText = `${y}年 ${parseInt(m)}月`;
+
+        let listEl = document.getElementById('paymentListArea');
+        
+        // 找出本月有上課紀錄的學生
+        let activeStudents = ss.filter(s => checkHasLessonInMonth(s.n, curPayMonthStr));
+
+        if (activeStudents.length === 0) {
+            listEl.innerHTML = '<div style="padding:20px; text-align:center; color:#a0aec0;">本月份無上課紀錄</div>';
+            return;
+        }
+
+        // 分類已繳費和未繳費
+        let unpaidHTML = '';
+        let paidHTML = '';
+
+        activeStudents.forEach(s => {
+            let key = `${curPayMonthStr}_${s.n}`;
+            let isPaid = payments[key] === true;
+            
+            let btnAction = `togglePayment('${s.n}', '${curPayMonthStr}')`;
+            
+            if (!isPaid) {
+                unpaidHTML += `
+                    <div class="pay-item" style="background:white;">
+                        <div style="font-weight:bold; color:#2d3748;">${s.n}</div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span class="pay-tag tag-unpaid">🔴 未繳費</span>
+                            <button onclick="${btnAction}" style="padding:6px 12px; font-size:12px; width:auto; background:#48bb78;">標記已繳</button>
+                        </div>
+                    </div>`;
+            } else {
+                paidHTML += `
+                    <div class="pay-item" style="background:#f0fff4;">
+                        <div style="color:#718096;">${s.n}</div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span class="pay-tag tag-paid">✅ 已繳費</span>
+                            <button class="btn-o" onclick="${btnAction}" style="padding:6px 12px; font-size:12px; width:auto; border-color:#cbd5e0; color:#718096;">取消</button>
+                        </div>
+                    </div>`;
+            }
+        });
+
+        let html = '';
+        if (unpaidHTML) {
+            html += `<div style="margin-bottom:10px; font-size:13px; font-weight:bold; color:#e53e3e;">待繳費清單</div><div style="border:1px solid #eee; border-radius:10px; overflow:hidden; margin-bottom:15px;">${unpaidHTML}</div>`;
+        }
+        if (paidHTML) {
+            html += `<div style="margin-bottom:10px; font-size:13px; font-weight:bold; color:#38a169;">已繳費清單</div><div style="border:1px solid #eee; border-radius:10px; overflow:hidden;">${paidHTML}</div>`;
+        }
+        
+        if (!html) {
+             // 理論上不會發生，因為 activeStudents > 0
+             html = '<div style="padding:20px; text-align:center; color:#a0aec0;">無資料</div>';
+        }
+
+        listEl.innerHTML = html;
+    }
+
+    function togglePayment(name, monthStr) {
+        let key = `${monthStr}_${name}`;
+        if (payments[key]) {
+            delete payments[key];
+        } else {
+            payments[key] = true;
+        }
+        save();
+        renderPaymentList();
+    }
+
     showP('h');
 </script>
 </body>
 </html>
-
