@@ -1226,41 +1226,6 @@
         return hasLesson;
     }
 
-    // 新增：計算單一學生在指定月份的總學費 (不含教材費，僅課程費)
-    function getStudentMonthTotal(name, monthStr) {
-        let s = ss.find(x => x.n === name);
-        if (!s) return 0;
-        let d = new Date(monthStr + "-01");
-        let mon = d.getMonth();
-        let total = 0;
-
-        while(d.getMonth() === mon) {
-            let dStr = getDStr(d);
-
-            // 1. 加課費用
-            let extras = adjs.filter(a => a.target === name && a.type === 'extra' && dStr === a.start);
-            extras.forEach(e => total += parseInt(e.r));
-
-            // 2. 正常課程費用
-            let lessonInfo = getEffectiveLesson(name, dStr);
-            if (lessonInfo && lessonInfo.status === 'normal') {
-                let ex = dayEx[dStr + "_" + name];
-                let finalR = s.r;
-                if (ex && ex.r) finalR = ex.r;
-                else {
-                    let curWeekday = d.getDay();
-                    if (s.history) {
-                         let h = s.history.find(hist => dStr < hist.until);
-                         if (h && curWeekday === h.d) finalR = h.r;
-                    }
-                }
-                total += parseInt(finalR);
-            }
-            d.setDate(d.getDate() + 1);
-        }
-        return total;
-    }
-
     function renderPaymentList() {
         let displayEl = document.getElementById('payMonthDisplay');
         let [y, m] = curPayMonthStr.split('-');
@@ -1279,36 +1244,26 @@
         // 分類已繳費和未繳費
         let unpaidHTML = '';
         let paidHTML = '';
-        
-        let totalUnpaidAmount = 0;
-        let totalPaidAmount = 0;
 
         activeStudents.forEach(s => {
             let key = `${curPayMonthStr}_${s.n}`;
             let isPaid = payments[key] === true;
-            let amount = getStudentMonthTotal(s.n, curPayMonthStr);
             
             let btnAction = `togglePayment('${s.n}', '${curPayMonthStr}')`;
             
             if (!isPaid) {
-                totalUnpaidAmount += amount;
                 unpaidHTML += `
                     <div class="pay-item" style="background:white;">
-                        <div style="font-weight:bold; color:#2d3748;">
-                            ${s.n} <span style="font-weight:normal; font-size:12px; color:#718096; margin-left:5px;">($${amount.toLocaleString()})</span>
-                        </div>
+                        <div style="font-weight:bold; color:#2d3748;">${s.n}</div>
                         <div style="display:flex; align-items:center; gap:10px;">
                             <span class="pay-tag tag-unpaid">🔴 未繳費</span>
                             <button onclick="${btnAction}" style="padding:6px 12px; font-size:12px; width:auto; background:#48bb78;">標記已繳</button>
                         </div>
                     </div>`;
             } else {
-                totalPaidAmount += amount;
                 paidHTML += `
                     <div class="pay-item" style="background:#f0fff4;">
-                        <div style="color:#718096;">
-                            ${s.n} <span style="font-size:12px;">($${amount.toLocaleString()})</span>
-                        </div>
+                        <div style="color:#718096;">${s.n}</div>
                         <div style="display:flex; align-items:center; gap:10px;">
                             <span class="pay-tag tag-paid">✅ 已繳費</span>
                             <button class="btn-o" onclick="${btnAction}" style="padding:6px 12px; font-size:12px; width:auto; border-color:#cbd5e0; color:#718096;">取消</button>
@@ -1319,13 +1274,14 @@
 
         let html = '';
         if (unpaidHTML) {
-            html += `<div style="margin-bottom:10px; font-size:13px; font-weight:bold; color:#e53e3e;">待繳費清單 (總額: $${totalUnpaidAmount.toLocaleString()})</div><div style="border:1px solid #eee; border-radius:10px; overflow:hidden; margin-bottom:15px;">${unpaidHTML}</div>`;
+            html += `<div style="margin-bottom:10px; font-size:13px; font-weight:bold; color:#e53e3e;">待繳費清單</div><div style="border:1px solid #eee; border-radius:10px; overflow:hidden; margin-bottom:15px;">${unpaidHTML}</div>`;
         }
         if (paidHTML) {
-            html += `<div style="margin-bottom:10px; font-size:13px; font-weight:bold; color:#38a169;">已繳費清單 (總額: $${totalPaidAmount.toLocaleString()})</div><div style="border:1px solid #eee; border-radius:10px; overflow:hidden;">${paidHTML}</div>`;
+            html += `<div style="margin-bottom:10px; font-size:13px; font-weight:bold; color:#38a169;">已繳費清單</div><div style="border:1px solid #eee; border-radius:10px; overflow:hidden;">${paidHTML}</div>`;
         }
         
         if (!html) {
+             // 理論上不會發生，因為 activeStudents > 0
              html = '<div style="padding:20px; text-align:center; color:#a0aec0;">無資料</div>';
         }
 
