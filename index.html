@@ -168,6 +168,13 @@
 
         <div id="paymentListArea"></div>
     </div>
+
+    <div class="card" style="margin-top: 20px; border-top: 4px solid #ed8936;">
+        <h3>📊 年度營收統計</h3>
+        <label>選擇年份</label>
+        <select id="yearStatsSelect" onchange="renderYearStats()" style="margin-bottom:15px;"></select>
+        <div id="yearStatsResult"></div>
+    </div>
 </div>
 
 <div id="m" class="page">
@@ -400,6 +407,8 @@
             initBilling(); 
             // 新增：進入費用頁面時初始化繳費管理
             initPaymentView();
+            // 新增：初始化年度統計
+            initYearStats();
         }
     }
 
@@ -1359,6 +1368,86 @@
         }
         save();
         renderPaymentList();
+        renderYearStats();
+    }
+
+    // ==========================================
+    // 新增功能：年度營收統計
+    // ==========================================
+
+    function initYearStats() {
+        let sel = document.getElementById('yearStatsSelect');
+        let currentY = new Date().getFullYear();
+        
+        // Calculate Min Year (Logic matching renderCal)
+        let minDate = new Date();
+        ss.forEach(s => {
+            let sd = getStudentStartDate(s);
+            if (sd < minDate) minDate = sd;
+        });
+        adjs.forEach(a => {
+            let ad = new Date(a.start);
+            if (ad < minDate) minDate = ad;
+        });
+        let minY = minDate.getFullYear();
+        
+        // Calculate Max Year (Logic matching renderCal / changePayMonth)
+        let now = new Date();
+        let endBound = new Date(now.getFullYear(), now.getMonth() + 12, 0);
+        let maxY = endBound.getFullYear();
+
+        // Preserve selected value if possible
+        let oldVal = sel.value; 
+        
+        let html = '';
+        for(let y = minY; y <= maxY; y++) { 
+            html += `<option value="${y}" ${y===currentY?'selected':''}>${y}年</option>`;
+        }
+        sel.innerHTML = html;
+        
+        // If the previously selected year is still valid, select it
+        if(oldVal && oldVal >= minY && oldVal <= maxY) {
+            sel.value = oldVal;
+        }
+
+        renderYearStats();
+    }
+
+    function renderYearStats() {
+        let y = document.getElementById('yearStatsSelect').value;
+        let tPaid = 0, tUnpaid = 0;
+
+        // 遍歷該年份的 1 到 12 月
+        for(let m = 1; m <= 12; m++) {
+            let mStr = `${y}-${String(m).padStart(2,'0')}`;
+            
+            // 遍歷所有學生
+            ss.forEach(s => {
+                let amt = getStudentMonthTotal(s.n, mStr);
+                if(amt > 0) {
+                    let key = `${mStr}_${s.n}`;
+                    if(payments[key] === true) {
+                        tPaid += amt;
+                    } else {
+                        tUnpaid += amt;
+                    }
+                }
+            });
+        }
+
+        document.getElementById('yearStatsResult').innerHTML = `
+            <div style="display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid #eee;">
+                <span style="color:#e53e3e; font-weight:bold;">🔴 未繳費總額</span>
+                <span style="font-weight:bold;">$${tUnpaid.toLocaleString()}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; padding:10px;">
+                <span style="color:#38a169; font-weight:bold;">✅ 已繳費總額</span>
+                <span style="font-weight:bold;">$${tPaid.toLocaleString()}</span>
+            </div>
+            <div style="margin-top:10px; padding-top:10px; border-top:2px dashed #e2e8f0; text-align:right; font-size:14px; color:#718096;">
+                年度預估總營收: $${(tPaid + tUnpaid).toLocaleString()}
+            </div>
+        `;
     }
 
     showP('h');
