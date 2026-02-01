@@ -36,6 +36,7 @@
         button { background: var(--p); color: white; border: none; padding: 14px; border-radius: 10px; width: 100%; font-size: 16px; font-weight: bold; cursor: pointer; }
         button:disabled { background: #cbd5e0; cursor: not-allowed; }
         .btn-s { background: var(--s); } .btn-d { background: var(--d); } .btn-o { background: white; color: var(--p); border: 1.5px solid var(--p); }
+        .btn-gray { background: #718096; color: white; }
         #calendar { background: white; padding: 10px; border-radius: 15px; height: 70vh; }
         .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2000; align-items:center; justify-content:center; }
         
@@ -134,6 +135,8 @@
     </div>
     <div class="card">
         <h3>📋 全體停課清單</h3>
+        <label>選擇年份</label>
+        <select id="allAdjYearFilter" onchange="renderAdj()" style="margin-bottom:15px;"></select>
         <div id="allAdjList"></div>
     </div>
     <div class="card">
@@ -271,14 +274,12 @@
     let ss = JSON.parse(localStorage.getItem('p_ss')) || [];
     let adjs = JSON.parse(localStorage.getItem('p_adjs')) || [];
     let dayEx = JSON.parse(localStorage.getItem('p_dayEx')) || {};
-    // 新增：讀取繳費資料
     let payments = JSON.parse(localStorage.getItem('p_payments')) || {};
 
     let selectedMonths = [], cal, curEditName;
     let tempNormalValues = { ts: "", te: "", r: "" };
     let calFilterNames = [];
 
-    // 新增：繳費管理目前檢視的月份
     let curPayMonthStr = getDStr(new Date()).substring(0, 7);
 
     function sortSS() {
@@ -289,6 +290,11 @@
             return a.ts.localeCompare(b.ts);
         });
     }
+
+    // 初始化舊資料的 status
+    ss.forEach(s => {
+        if (!s.status) s.status = 'active';
+    });
 
     sortSS();
 
@@ -405,9 +411,7 @@
         if(id === 'b') { 
             upOpt(); 
             initBilling(); 
-            // 新增：進入費用頁面時初始化繳費管理
             initPaymentView();
-            // 新增：初始化年度統計
             initYearStats();
         }
     }
@@ -416,15 +420,107 @@
         localStorage.setItem('p_ss', JSON.stringify(ss));
         localStorage.setItem('p_adjs', JSON.stringify(adjs));
         localStorage.setItem('p_dayEx', JSON.stringify(dayEx));
-        // 新增：儲存繳費資料
         localStorage.setItem('p_payments', JSON.stringify(payments));
     }
 
     function renderS() {
-        document.getElementById('sList').innerHTML = ss.map((s, i) => `
-            <div class="card"><b>${s.n}</b> | 週${['日','一','二','三','四','五','六'][s.d]} ${fmtT(s.ts)}~${fmtT(s.te)} ($${s.r})
-            <div style="display:flex; gap:8px; margin-top:10px;"><button class="btn-o" style="flex:1;" onclick="openSForm(${i})">修改資料</button>
-            <button class="btn-d" style="flex:1;" onclick="delStudent(${i})">刪除</button></div></div>`).join('');
+        document.getElementById('sList').innerHTML = ss.map((s, i) => {
+            let statusBadge = s.status === 'suspended' ? '<span style="color:red; font-size:13px; margin-left:5px;">(停課中)</span>' : '';
+            let btnLabel = s.status === 'suspended' ? '復課' : '停課';
+            let btnClass = s.status === 'suspended' ? 'btn-s' : 'btn-gray'; // 復課綠色, 停課灰色
+            
+            // 修改點 1: 停課時也要能修改資料，所以移除了 disabled
+            let editDisabled = ''; 
+
+            return `
+            <div class="card">
+                <b>${s.n}</b> ${statusBadge} | 週${['日','一','二','三','四','五','六'][s.d]} ${fmtT(s.ts)}~${fmtT(s.te)} ($${s.r})
+                <div style="display:flex; gap:8px; margin-top:10px;">
+                    <button class="btn-o" style="flex:1;" onclick="openSForm(${i})" ${editDisabled}>修改資料</button>
+                    <button class="${btnClass}" style="flex:1;" onclick="toggleStatus(${i})">${btnLabel}</button>
+                    <button class="btn-d" style="flex:1;" onclick="delStudent(${i})">刪除</button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function toggleStatus(i) {
+        let s = ss[i];
+        let now = new Date();
+        let todayStr = getDStr(now);
+        // 計算明天日期
+        let tmr = new Date(now);
+        tmr.setDate(tmr.getDate() + 1);
+        let tmrStr = getDStr(tmr);
+
+        if (s.status === 'suspended') {
+            // --- 執行復課邏輯 ---
+            if (confirm(`確定讓「${s.n}」復課嗎？\n復課後課程將從明天 (${tmrStr}) 開始生效。`)) {
+                // 檢查是否與現有其他 Active 學生衝突
+                let conflict = checkTimeConflict(s.n, s.d, s.ts, s.te, i);
+                if (conflict) {
+                    return alert(`🚫 復課失敗：\n時段與學生 「${conflict.n}」 (${fmtT(conflict.ts)}~${fmtT(conflict.te)}) 衝突！\n請先修改「${s.n}」時間或 「${conflict.n}」 時間。`);
+                }
+
+                s.status = 'active';
+                
+                // 修改點 4: 復課時不覆蓋 createdDate，保留最原始的起始日
+                // s.createdDate = tmrStr; 
+                
+                // 修正邏輯：為了讓復課前的"停課期間"保持空白，我們需要在 history 插入一段"空白"紀錄
+                // 這樣 getEffectiveLesson 在掃描歷史時，這段期間會被認為是"有歷史紀錄但無課程"
+                if (s.history && s.history.length > 0) {
+                    let lastHist = s.history[s.history.length - 1];
+                    // 如果最後一筆歷史紀錄的結束日早於明天 (代表中間有停課空檔)
+                    if (lastHist.until < tmrStr) {
+                        // 插入一筆無效的課程紀錄 (d: -1) 來填補空檔，直到明天復課
+                        s.history.push({ d: -1, ts: '00:00', te: '00:00', r: 0, until: tmrStr });
+                    }
+                }
+                
+                alert(`✅ 「${s.n}」已復課，課程將於明天開始顯示。`);
+                save();
+                renderS();
+                sortSS();
+            }
+        } else {
+            // --- 執行停課邏輯 ---
+            if (confirm(`確定讓「${s.n}」停課嗎？\n\n⚠️ 注意事項：\n1. 固定課程將保留至今天 (${todayStr})。\n2. 明天以後的所有「課程與備註」將被自動刪除。\n3. 日曆上明天起將不再出現該學生課程。`)) {
+                
+                // 1. 保留歷史紀錄：將目前狀態存入 history，until 設為明天 (代表有效至明天之前 = 今天)
+                if (!s.history) s.history = [];
+                s.history.push({ d: s.d, ts: s.ts, te: s.te, r: s.r, until: tmrStr });
+
+                // 2. 移除明天以後的加課 (adjs)
+                let removedExtras = 0;
+                for (let j = adjs.length - 1; j >= 0; j--) {
+                    let a = adjs[j];
+                    if (a.target === s.n && a.type === 'extra' && a.start >= tmrStr) {
+                        adjs.splice(j, 1);
+                        removedExtras++;
+                    }
+                }
+
+                // 修改點 3: 移除明天以後的單日例外/備註 (dayEx)
+                // 這包含了停課註記、全體停課在該生的註記、單次調課等所有資訊
+                for (let key in dayEx) {
+                    if (key.includes(s.n)) {
+                        let datePart = key.split('_')[0];
+                        if (datePart >= tmrStr) {
+                            delete dayEx[key];
+                        }
+                    }
+                }
+
+                s.status = 'suspended';
+                // 標記停課日期，主要供邏輯判斷，雖 createdDate 控制了開始，history 控制了結束
+                s.suspendDate = tmrStr; 
+
+                alert(`✅ 「${s.n}」已停課。\n已自動移除 ${removedExtras} 筆未來加課與相關設定。`);
+                save();
+                renderS();
+            }
+        }
     }
 
     function delStudent(i) {
@@ -478,7 +574,7 @@
         if (timeConflict) return alert(`🚫 時段衝突：\n與學生 ${timeConflict.n} 的時段 (${fmtT(timeConflict.ts)}~${fmtT(timeConflict.te)}) 重疊！`); 
 
         if(i==="") {
-            ss.push({ n: name, d: wd, ts: ts, te: te, r: rate, history: [], createdDate: firstDayStr });
+            ss.push({ n: name, d: wd, ts: ts, te: te, r: rate, history: [], createdDate: firstDayStr, status: 'active' });
         } else {
             let old = ss[i];
             
@@ -505,7 +601,8 @@
         for (let idx = 0; idx < ss.length; idx++) {
             if (selfIdx !== "" && idx == selfIdx) continue; 
             let s = ss[idx];
-            if (s.d === wd) {
+            // 只檢查狀態為 'active' 的學生
+            if (s.status !== 'suspended' && s.d === wd) {
                 if ((ts < s.te) && (s.ts < te)) {
                     return s;
                 }
@@ -542,17 +639,25 @@
         let baseTs = s.ts, baseTe = s.te;
         let isBaseDay = false;
         
+        let foundInHistory = false;
+
+        // 優先檢查歷史紀錄
         if (s.history) {
             let h = s.history.find(hist => dateStr < hist.until);
             if (h) {
+                // 如果在歷史紀錄範圍內，就使用歷史紀錄，無視目前狀態 (即使現在是 suspended)
                 if (h.d === curWeekday) { baseTs = h.ts; baseTe = h.te; isBaseDay = true; }
+                foundInHistory = true; 
             } 
-            else if (s.d === curWeekday) { 
+        } 
+        
+        // 若不在歷史紀錄內，且學生目前狀態是 suspended，則不生成固定課程
+        if (!foundInHistory) {
+            if (s.status === 'suspended') {
+                isBaseDay = false;
+            } else if (s.d === curWeekday) { 
                 isBaseDay = true; 
             }
-        } 
-        else if (s.d === curWeekday) { 
-            isBaseDay = true; 
         }
 
         let effectiveTs = baseTs, effectiveTe = baseTe;
@@ -668,7 +773,7 @@
         
         if (target === 'ALL') revalidateAndCleanExtras();
 
-        save(); renderAdj(); 
+        save(); renderAdj(true); 
         
         alert(target === 'ALL' ? "已成功設定全體停課！" : "已成功新增加課！"); 
 
@@ -741,7 +846,7 @@
         
         revalidateAndCleanExtras();
 
-        save(); renderAdj(); renderCal(); closeModal();
+        save(); renderAdj(true); renderCal(); closeModal();
     }
 
     function delAdjFromModal() { let idx = parseInt(document.getElementById('adjEditIdx').value); delAdjItem(idx); closeModal(); }
@@ -750,20 +855,56 @@
         if (!confirm('確定刪除此設定？')) return; 
         adjs.splice(idx, 1);
         revalidateAndCleanExtras();
-        save(); renderAdj(); renderCal();
+        save(); renderAdj(true); renderCal();
     }
 
     function renderAdj(resetFilter = false) {
         const filterEl = document.getElementById('filterStudent');
         if (resetFilter) {
-            let optionsHtml = ss.map(s => `<option value="${s.n}">${s.n}</option>`).join('');
+            // 修改點 2: 修改下拉選單邏輯
+            // 如果學生是 active -> 顯示
+            // 如果學生是 suspended -> 檢查 adjs 是否有 extra 紀錄 -> 有則顯示，無則隱藏
+            let optionsHtml = ss.map(s => {
+                if (s.status === 'active') {
+                    return `<option value="${s.n}">${s.n}</option>`;
+                } else {
+                    let hasExtras = adjs.some(a => a.target === s.n && a.type === 'extra');
+                    if (hasExtras) {
+                        return `<option value="${s.n}">${s.n} (停課)</option>`;
+                    }
+                    return '';
+                }
+            }).join('');
+            
             filterEl.innerHTML = optionsHtml;
-            if (!filterEl.value || filterEl.value === "ALL") { if (ss.length > 0) filterEl.value = ss[0].n; }
+            // 預設選取第一個可見的選項
+            if (!filterEl.value && filterEl.options.length > 0) {
+                filterEl.value = filterEl.options[0].value;
+            }
+            
+            const yearSelect = document.getElementById('allAdjYearFilter');
+            let globalOffs = adjs.filter(a => a.target === 'ALL');
+            let years = new Set();
+            globalOffs.forEach(a => {
+                years.add(a.start.substring(0, 4));
+                years.add(a.end.substring(0, 4));
+            });
+            let sortedYears = Array.from(years).sort().reverse();
+            if (sortedYears.length === 0) sortedYears.push(new Date().getFullYear().toString());
+
+            yearSelect.innerHTML = sortedYears.map(y => `<option value="${y}">${y}年</option>`).join('');
+            yearSelect.value = sortedYears[0];
         }
+
         let filterName = filterEl.value;
+        let filterYear = document.getElementById('allAdjYearFilter').value; 
+
         let sorted = [...adjs].sort((a, b) => b.start.localeCompare(a.start));
         
-        let allHtml = sorted.filter(a => a.target === 'ALL').map(a => {
+        let allHtml = sorted.filter(a => {
+            if (a.target !== 'ALL') return false;
+            return a.start.startsWith(filterYear) || a.end.startsWith(filterYear);
+        }).map(a => {
             let realIdx = adjs.indexOf(a);
             let dateStr = (a.start === a.end) ? a.start : `${a.start} ~ ${a.end}`;
             return `<div class="adj-item"><div><b>📢 全體停課</b> [${a.reason||''}]<br>${dateStr}</div>
@@ -780,7 +921,7 @@
             <button onclick="delAdjItem(${realIdx})" style="width:60px;background:var(--d);font-size:12px;margin:0;padding:6px;">刪除</button></div></div>`;
         }).join('');
         
-        document.getElementById('allAdjList').innerHTML = allHtml || '<p style="color:#999;font-size:12px;">尚無設定</p>';
+        document.getElementById('allAdjList').innerHTML = allHtml || '<p style="color:#999;font-size:12px;">該年份尚無設定</p>';
         document.getElementById('oneAdjList').innerHTML = oneHtml || '<p style="color:#999;font-size:12px;">尚無設定</p>';
     }
 
@@ -804,29 +945,21 @@
         if(cal) cal.destroy();
         let evs = [], now = new Date();
         
-        // --- 修改開始：找出最早的日期 ---
-        let earliestDate = new Date(); // 預設為今天
+        let earliestDate = new Date(); 
 
-        // 1. 檢查所有學生的起始日
         ss.forEach(s => {
             let sd = getStudentStartDate(s);
             if (sd < earliestDate) earliestDate = sd;
         });
 
-        // 2. 檢查所有調課/停課紀錄的日期
         adjs.forEach(a => {
             let ad = new Date(a.start);
             if (ad < earliestDate) earliestDate = ad;
         });
 
-        // 設定起始邊界為最早日期的該月1號
         let startBound = new Date(earliestDate.getFullYear(), earliestDate.getMonth(), 1);
-        // --- 修改結束 ---
-
         let endBound = new Date(now.getFullYear(), now.getMonth() + 12, 0); 
 
-        // adjs.forEach(a => { if (new Date(a.start) < startBound) startBound = new Date(a.start); }); // 這行舊邏輯可以移除了，因為上面已經找過更全面的 earliestDate
-        
         let d = new Date(startBound);
         
         while(d <= endBound) {
@@ -853,8 +986,8 @@
                     let finalR = s.r; 
                     if (ex && ex.r) finalR = ex.r;
                     else {
-                          let curWeekday = d.getDay();
-                          if (s.history) {
+                        let curWeekday = d.getDay();
+                        if (s.history) {
                              let h = s.history.find(hist => dStr < hist.until);
                              if (h && curWeekday === h.d) finalR = h.r; 
                           }
@@ -1047,12 +1180,19 @@
         save(); renderCal(); closeModal(); 
     }
 
-    function upOpt() { let options = ss.map(s => `<option value="${s.n}">${s.n}</option>`).join(''); document.getElementById('bS').innerHTML = options; document.getElementById('oneStudent').innerHTML = options; document.getElementById('filterStudent').innerHTML = options; }
+    function upOpt() { 
+        let allOptions = ss.map(s => `<option value="${s.n}">${s.n}</option>`).join(''); 
+        // 篩選 active 學生供個別加課使用
+        let activeOptions = ss.filter(s => s.status !== 'suspended').map(s => `<option value="${s.n}">${s.n}</option>`).join('');
+        
+        document.getElementById('bS').innerHTML = allOptions; 
+        document.getElementById('oneStudent').innerHTML = activeOptions; // 只有 Active 能選
+        document.getElementById('filterStudent').innerHTML = allOptions; 
+    }
+    
     function closeModal() { document.querySelectorAll('.modal').forEach(m=>m.style.display='none'); }
     function share() { window.location.href = "https://line.me/R/msg/text/?" + encodeURIComponent(document.getElementById('bT').value); }
-    // 新增：加入 payments 備份
     function exportData() { const blob = new Blob([JSON.stringify({ss, adjs, dayEx, payments})], {type:'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `piano_backup.json`; a.click(); }
-    // 新增：加入 payments 還原
     function importData() { const input = document.getElementById('importFile'); if(!input.files[0]) return alert("請選擇檔案"); const reader = new FileReader(); reader.onload = () => { try { const d = JSON.parse(reader.result); ss=d.ss||[]; adjs=d.adjs||[]; dayEx=d.dayEx||{}; payments=d.payments||{}; sortSS(); save(); alert("匯入成功！"); location.reload(); } catch(e) { alert("格式錯誤"); } }; reader.readAsText(input.files[0]); } 
     function clearAllData() { if(confirm("⚠️ 確定清空所有資料嗎？")) { localStorage.clear(); location.reload(); } } 
 
@@ -1277,8 +1417,8 @@
                 else {
                     let curWeekday = d.getDay();
                     if (s.history) {
-                         let h = s.history.find(hist => dStr < hist.until);
-                         if (h && curWeekday === h.d) finalR = h.r;
+                          let h = s.history.find(hist => dStr < hist.until);
+                          if (h && curWeekday === h.d) finalR = h.r;
                     }
                 }
                 total += parseInt(finalR);
